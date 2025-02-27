@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <html>
   <head>
-    <title>TeX Typesetting in R</title>
+    <title>LaTeX Typesetting in R</title>
     <style type="text/css">
     @media print {
       body { }
@@ -91,16 +91,13 @@ options(bitmapType="cairo")
           <a href="#intro">1. Introduction</a>
         </li>
         <li>
-          <a href="#user">2. The 'xdvir' package</a>
+          <a href="#requirements">2. Technical requirements</a>
         </li>
         <li>
-          <a href="#requirements">3. Technical requirements</a>
+          <a href="#Resources">3. Resources</a>
         </li>
         <li>
-          <a href="#Resources">4. Resources</a>
-        </li>
-        <li>
-          <a href="#references">5. References</a>
+          <a href="#references">4. References</a>
         </li>
       </ul>
     </div>
@@ -108,293 +105,154 @@ options(bitmapType="cairo")
       <a name="intro">1. Introduction</a>
     </h2>
     <p>
-    See ../RJournal/diagram/ for nice TikZ diagram of package structure.
+    The 'xdvir' package for R 
+    (<a href="#xdvir-pkg"/>) 
+    allows LaTeX fragments to be used as
+    labels and annotations on R plots.  The 
+    package vignette describes basic high-level usage 
+    and an article submitted to the R Journal
+    explains more and has more complex examples.
+    The purpose of this document is to provide a description
+    of some more advanced uses of the package, including ways to
+    extend the package, and to provide a record of the 
+    lower-level design and implementation of the package.
+  </p>
+    <p>
+    The package startup detects and reports on which TeX engines are available
+    on the current system.  This report is built on a system
+    with XeTeX and an acceptable version of LuaTeX, so both of those
+    engines are available.  This means that the default engine
+    for building this report is LuaTeX.
+  </p>
+    <rcode><![CDATA[
+library(xdvir)
+  ]]></rcode>
+    <rcode><![CDATA[
+    getOption("xdvir.engine")$name
+  ]]></rcode>
+    <p>
+    Rendering a LaTeX fragment in R involves three steps:
+  </p>
+    <ol>
+      <li><strong>Authoring:</strong> The LaTeX fragment has to be augmented
+      to create a complete LaTeX document.
+    </li>
+      <li><strong>Typesetting:</strong> The LaTeX document has to be typeset to
+      create a file of DVI operations and that DVI file has to be
+      read into an R data structure.
+    </li>
+      <li><strong>Rendering:</strong> The DVI data structure has to be drawn.
+    </li>
+    </ol>
+    <p>
+      <img src="diagram/diag.png" alt="The high-level design of the xdvir package." style="max-width: 100%"/>
+    </p>
+    <p>
+    This document begins by taking a closer look at each of those three steps.
+  </p>
+    <h2>Authoring</h2>
+    <p>
+    The <code>author()</code> function turns a LaTeX fragment into 
+    a LaTeX document.  This consists of adding additional
+    LaTeX code around the LaTeX fragment.
+  </p>
+    <rcode><![CDATA[
+fragment <- "test"
+author(fragment)
+  ]]></rcode>
+    <p>
+    There are some obvious additions, like <code>\begin{document}</code> and
+    <code>\end{document}</code>.  
+  </p>
+    <p>
+    The <code>\documentclass</code> is always
+    <code>standalone</code>.  This is partly because that seems sensible - the
+    LaTeX fragments are not complete documents, but typically small labels to be
+    added to other drawing - but also because that will not produce, for
+    example, any page numbering or headers and footers that you normally
+    get from something like the standard <code>article</code> class.
+  </p>
+    <p>
+    The <code>varwidth</code> option is set for the <code>standalone</code>
+    class.  This is not always necessary and it may actually cause
+    problems if the width of the DVI output exceeds the text width of 
+    a standard article.  However, the <code>width</code> argument
+    to <code>author()</code> can be used to specify an explicit width
+    if that is convenient and/or if that is necessary.
+    This uses the <code>varwidth</code> option to set an explicit width.
+    If given, the <code>width</code> is interpreted as a number of inches.
+  </p>
+    <rcode><![CDATA[
+author(fragment, width=2)    
+  ]]></rcode>
+    <p>
+    The <code>\usepackage{unicode-math}</code> is there to force the TeX engine
+    to use TrueType math fonts and to produce font file paths in DVI output.
+    Without this, you tend to get <code>fnt_def</code> operations in the DVI
+    output of the form <code>cmmi10</code>.  Those not only require mapping to
+    actual font files, but they resolve to Type 1 fonts.  That is a problem
+    because the rendering of LaTeX fragments requires a graphics device that has
+    support for rendering glyphs
+    <a href="murrell-pedersen-urbanek-glyphs-2023"/>
+    and the main set of those is the Cairo devices and they 
+    no longer support Type 1 fonts.
+  </p>
+    <p>
+    The comment on the first line records information about the version of
+    'xdvir', the TeX engine that was used to author the document, and the LaTeX
+    packages that were specified.  As noted previously, the engine defaults on
+    package startup.
+    We can use the <code>engine</code> and
+    <code>packages</code> arguments to <code>author()</code> to explicitly set
+    those values.  Notice that the addition of <code>packages="xcolor"</code>
+    adds to both the comment on the first line and a new
+    <code>\usepackage</code> line.  
+  </p>
+    <rcode><![CDATA[
+author(fragment, engine="xetex", packages="xcolor")    
+  ]]></rcode>
+    <p>
+    Some packages will add more lines.  For example, the <code>preview</code>
+    package adds further to the document preamble and wraps the fragment
+    within a <code>preview</code> environment.  
+  </p>
+    <rcode><![CDATA[
+author(fragment, packages="preview")    
+  ]]></rcode>
+    <p>
+    Where packages add a lot
+    of additional code to the documenbt like this, there is a risk of 
+    conflicting with the LaTeX fragment and/or a risk of 
+    packages conflicting with each other.  This is one possible
+    reason for authoring a LaTeX document directly rather than relying
+    on the <code>author()</code> function.
+    However, care must be taken in that case to retain features like
+    <code>\usepackage{unicode-math}</code> so that the right 
+    DVI output is produced during the typesetting step.
+  </p>
+    <p>
+    In other words, here be dragons.  On the positive side, I have yet
+    to irretrievably bite myself with this problem.
+  </p>
+    <p>
+    We will talk more about engines and packages later on.
+  </p>
+    <h2>TODO</h2>
+    <p>
+    Debugging - mostly manually typesetting to check that your LaTeX
+    fragment is not complete bullshit.
   </p>
     <p>
     Use the ChartAccent paper and its references to justify the
     need for tools that can add annotations.
   </p>
     <p>
-    The image below shows an R plot with a text 
-    annotation.<a href="#beausoleil"/>
-    It is easy to add a text annotation to a plot in R with
-    functions like <code>graphics::text()</code> and
-    <code>grid::grid.text()</code> or, at a higher-level,
-    <code>ggplot2::geom_text()</code> and 
-    <code>ggplot2::annotate()</code>.
-    However, there are some significant limitations to the sort
-    text annotation that those functions can produce.
-  </p>
-    <p>
-      <img src="Example/simplified.png" alt="plot with surprisingly complex text annotation" style="max-width: 100%"/>
-    </p>
-    <p>
-    The text annotation in the top-right corner of the plot 
-    above does not appear to be particularly special nor 
-    particularly complicated at
-    first glance, but it
-    harbours several important details:
-  </p>
-    <ul>
-      <li>
-        <p>
-        The text is a mixture of plain text and mathematical expressions
-        (like $\bar z_i$).
-        Furthermore, the mathematical expressions use a different font
-        (Computer Modern) than the plain text (TeX Gyre Adventor).
-      </p>
-        <p>
-        The R graphics system can draw mathematical expressions
-        (so-called "plotmath"; CITE) and that includes a mixture of 
-        plain text and mathematical expressions, but it can only use
-        the same font for the entire mixture.
-        Not to mention the fact that the typesetting of
-        mathematical expressions in R graphics is not particularly pretty.
-      </p>
-      </li>
-      <li>
-        <p>
-        The text is not all the same colour;  the final two words
-        (but not the full stop) are <span style="color: #DF536B">red</span>.
-      </p>
-        <p>
-        The R graphics system can only draw a character value
-        with a single colour.
-        The 'gridtext' and 'ggtext' packages (CITE) make it possible to
-        change colour within a character value, but they do
-        not allow a mixture of plain text and mathematical expressions.
-      </p>
-        <p>
-        MUST acknowledge 'geomtextpath' package too!
-      </p>
-      </li>
-      <li>
-        <p>
-        The text is broken over multiple lines.
-        Furthermore, the text is fully justified (not ragged-left or 
-        ragged-right justified)
-        <em>and</em> one of the words ("population") has been split across lines
-        and hyphenated.
-        Although it is not obvious from the plot itself, the 
-        line breaks were also automatically generated to fit the
-        text into a fixed width (3.5 inches).
-      </p>
-        <p>
-        The R graphics system can draw a character value
-        across multiple lines, but
-        only if explicit newlines are embedded in the character value
-        (i.e., the line breaks are manual).
-        The 'gridtext' and 'ggtext' 
-        packages can calculate simple
-        automated line breaks, but they will not break a word across lines
-        (or hyphenate)
-        and they cannot fully justify the resulting text.
-        The 'textshaping' package (CITE) 
-        can also calculate simple automated line 
-        breaks and even offers paragraph indenting 
-        (for the first line).  However, it also cannot split words
-        or fully justify the result.
-      </p>
-      </li>
-    </ul>
-    <p>
-    The features outlined above are all examples of <em>typesetting</em>;
-    determining an arrangement of 
-    individual characters and symbols (<em>glyphs</em>)
-    that could be as simple as placing one character after another
-    (from left to right),
-    but could also be as complex as arranging mathematical symbols,
-    splitting text into multiple columns,
-    or writing text vertically from top to bottom.
-  </p>
-    <p>
-    From R 4.3.0, it is possible to draw text from a set of typeset glyphs
-    using the functions <code>grDevices::glyphInfo()</code> and
-    <code>grid::grid.glyph()</code> (CITE).
-    However, that facility presupposes that we are able to generate
-    a set of typeset glyphs.  What is needed is a <em>typesetting system</em>
-    to generate a set of typeset glyphs.
-  </p>
-    <p>
-    The R graphics system is not a typesetting system.
-    Functions like <code>graphics::text()</code> and 
-    <code>grid::grid.text()</code> can only draw horizontal text
-    with explicit line breaks.
-    For example, the following code gets about as close as possible
-    to the desired result using existing text facilities.
-  </p>
-    <rcode echo="FALSE"><![CDATA[
-cat(readLines("Example/simplified-base-annotate.R"), sep="\n")    
-  ]]></rcode>
-    <p>
-      <img src="Example/simplified-base.png" alt="A base graphics version of the text annotation." style="max-width: 100%; margin: 0; padding: 0"/>
-    </p>
-    <p>
-    At first glance, the text annotation in the top-right corner of the
-    plot above does not appear to be terribly flawed, but the
-    annotation, and the code that is required to draw it, harbour
-    several important deficiencies:
-  </p>
-    <ul>
-      <li>
-        <p>
-        The text has had to be manually broken into separate 
-        <code>grid.text()</code> calls, one for each line.
-        This is at best awkward, but becomes truly problematic
-        if the line breaks have to be regenerated, for example,
-        if the plot needs to be redrawn at a different size.
-      </p>
-      </li>
-      <li>
-        <p>
-        The final line has to be a <code>gridtext::richtext_grob()</code>
-        call to achieve the change in colour.  This only works in this case
-        because there is no math on that line.        
-      </p>
-      </li>
-      <li>
-        <p>
-        The text has a ragged-left alignment, rather than full justification,
-        because there is no way to achieve the latter with the text-drawing
-        facilities in R.  Hyphenation is not an option either.
-      </p>
-      </li>
-      <li>
-        <p>
-        The mathematical expressions are not as pretty.  Although R 
-        attempts to emulate the $\rm$TeX$ algorithm for laying out
-        mathematical expressions, it does not achieve the same level
-        of quality.
-      </p>
-      </li>
-      <li>
-        <p>
-        The line spacing is inconsistent;  the gap between the third and
-        fourth lines is larger than most and the gap between the fourth
-        and fifth lines is smaller.  This reflects the unsophisticated
-        approach R graphics has to the placement of text (and occurs
-        because the fourth line is taller than the others because of 
-        the bar over the capital "W").
-      </p>
-      </li>
-    </ul>
-    <p>
-    An example of a really good typesetting system is the $\rm\TeX$ system 
-    (CITE). $\rm\TeX$ provides both a language for describing complex
-    arrangements of text (and math) and a typesetting engine 
-    that can generate the final arrangment of glyphs.
-    For example, the following $\rm\TeX$ code provides instructions
-    for typesetting the annotation within a fixed width of 3.5 inches.
-  </p>
-    <rcode echo="FALSE"><![CDATA[
-cat(readLines("Example/simplified-source.tex"), sep="\n")
-  ]]></rcode>
-    <p>
-    This report introduces the 'xdvir' package, which 
-    provides a bridge between $\rm\TeX$ and R and makes it possible
-    to produce more sophisticated text annotations.  
-    With the 'xdvir' package, drawing
-    the (nice version of the) text annotation only requires
-    the single function call below (with the <code>tex</code>
-    variable containing the $\rm\TeX$ code above).
-  </p>
-    <rcode eval="FALSE"><![CDATA[
-grid.latex(tex,
-           packages="xcolor",
-           x=unit(1, "npc") - unit(5, "mm"), 
-           y=unit(1, "npc") - unit(5, "mm"),
-           hjust="right", vjust="top")
-  ]]></rcode>
-    <p>
-    The two versions of the annotated plot are reproduced below 
-    side-by-side to allow easier comparison.
-    Again, at first glance, the benefits of proper typesetting 
-    may not leap off the page, but if the detailed appearance of 
-    text labels and annotations are important to you
-    then the 'xdvir' package might be worth a look.
-  </p>
-    <!-- Get two images on same line because ...
-       the images are 50% width AND the paragraph has zero-size text 
-       (so the line break between images produces a zero-width space) -->
-    <p style="font-size: 0">
-      <img src="Example/simplified.png" alt="plot with surprisingly complex text annotation" style="max-width: 50%; margin: 0; padding: 0"/>
-      <img src="Example/simplified-base.png" alt="plot with surprisingly complex text annotation" style="max-width: 50%; margin: 0; padding: 0"/>
-    </p>
-    <p>
       <strong>PROVIDE a map of the structure of the report</strong>
     </p>
-    <rcode echo="FALSE"><![CDATA[
-texGrobs <- new.env()
-texDir <- "TeX"
-drawTeX <- function(tex, file, engine=lualatexEngine) {
-    oldwd <- setwd(texDir)
-    on.exit(setwd(oldwd))
-    texFile <- paste0(file, ".tex")
-    if (!file.exists(texFile))
-        author(tex, engine=engine, texFile=texFile)
-    dviFile <- paste0(file, ".dvi")
-    if (!file.exists(dviFile))
-        typeset(texFile, engine=engine, xdvir=TRUE)
-    dviObj <- paste0(file, "DVI")
-    if (!exists(dviObj, envir=texGrobs, inherits=FALSE)) {
-        dvi <- readDVI(dviFile)
-        assign(dviObj, dvi, envir=texGrobs)
-    } else {
-        dvi <- get(dviObj, envir=texGrobs, inherits=FALSE)
-    }
-    dviGrob <- paste0(file, "Grob")
-    if (!exists(dviGrob, envir=texGrobs, inherits=FALSE)) {
-        dvigrob <- dviGrob(dvi)
-        assign(dviGrob, dvigrob, envir=texGrobs)
-    } else {
-        dvigrob <- get(dviGrob, envir=texGrobs, inherits=FALSE)
-    }
-    grid.draw(dvigrob)
-}
-  ]]></rcode>
-    <p>
-    Another nice complex example of math annotations on  a plot
-
-    https://wjschne.github.io/posts/2023-07-23-latex-equation-in-ggplot2/
-
-    This is just as good as an {xdvir} annotation, 
-    BUT no use for titles etc?
-    AND harder to integrate with R plot, e.g., baseline alignment.
-  </p>
-    <h2>
-      <a name="user">2. The 'xdvir' package</a>
-    </h2>
-    <p><strong>Just the simple <code>grid.latex()</code> API</strong>.
-    Later sections can go into engines, packages, etc ...
-  </p>
-    <rcode message="FALSE"><![CDATA[
-library(xdvir)
-  ]]></rcode>
-    <rcode><![CDATA[
-options(xdvir.tinytex=FALSE)
-options(xdvir.ttxCacheDir="/scratch/TTXfonts/")
-  ]]></rcode>
     <p>
     Examples:
   </p>
     <ul>
-      <li>
-        <p>
-        Simple text        
-      </p>
-        <rcode><![CDATA[
-tex <- "\\Huge test"
-      ]]></rcode>
-        <rcode eval="FALSE"><![CDATA[
-grid.latex(tex)
-      ]]></rcode>
-        <rcode echo="FALSE" fig.width="1" fig.height=".5" message="FALSE"><![CDATA[
-drawTeX(tex, "demo-simple-text")
-      ]]></rcode>
-      </li>
-      <li>
-      Simple math (esp, including hrules)
-    </li>
       <li>
       dpi arg.
       Gaussian equation a decent example
@@ -671,7 +529,7 @@ https://matplotlib.org/stable/gallery/text_labels_and_annotations/tex_demo.html
     precise and reliable control.
   </p>
     <h2>
-      <a name="requirements">3. Technical requirements</a>
+      <a name="requirements">2. Technical requirements</a>
     </h2>
     <p>
     The examples and discussion in this report relate to 
@@ -685,7 +543,7 @@ https://matplotlib.org/stable/gallery/text_labels_and_annotations/tex_demo.html
     (see <a href="#Resources">Resources</a> section below).
   </p>
     <h2>
-      <a name="Resources">4. Resources</a>
+      <a name="Resources">3. Resources</a>
     </h2>
     <ul>
       <li>
@@ -724,11 +582,17 @@ https://matplotlib.org/stable/gallery/text_labels_and_annotations/tex_demo.html
       <a href="https://stattech.blogs.auckland.ac.nz/">http</a> ]
   </p>
     <h2>
-      <a name="references">5. References</a>
+      <a name="references">4. References</a>
     </h2>
     <ul style="list-style-type: none">
       <li>
         <a name="R"/>
+      </li>
+      <li>
+        <a name="xdvir-pkg"/>
+      </li>
+      <li>
+        <a name="murrell-pedersen-urbanek-glyphs-2023"/>
       </li>
     </ul>
     <h2>Footnotes</h2>

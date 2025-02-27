@@ -27,7 +27,7 @@ endif
 docker:
 	cp ../../xdvir_0.1-2.tar.gz .
 	sudo docker build -t pmur002/xdvir-report .
-	sudo docker run -e Rscript=Rscript -v $(shell pwd):/home/work/ -w /home/work --rm pmur002/xdvir-report make xdvir.html
+	sudo docker run -e Rscript=Rscript -v "$(shell pwd)":/home/work/ -w /home/work --rm pmur002/xdvir-report make xdvir.html
 
 web:
 	make docker
