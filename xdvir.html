@@ -1,0 +1,838 @@
+<html>
+  <head>
+<style type="text/css">
+.inline {
+  background-color: #f7f7f7;
+  border:solid 1px #B0B0B0;
+}
+.error {
+	font-weight: bold;
+	color: #FF0000;
+}
+.warning {
+	font-weight: bold;
+}
+.message {
+	font-style: italic;
+}
+.source, .output, .warning, .error, .message {
+	padding: 0 1em;
+  border:solid 1px #F7F7F7;
+}
+.source {
+  background-color: #f5f5f5;
+}
+.left {
+  text-align: left;
+}
+.right {
+  text-align: right;
+}
+.center {
+  text-align: center;
+}
+.hl.num {
+  color: #AF0F91;
+}
+.hl.sng {
+  color: #317ECC;
+}
+.hl.com {
+  color: #AD95AF;
+  font-style: italic;
+}
+.hl.opt {
+  color: #000000;
+}
+.hl.def {
+  color: #585858;
+}
+.hl.kwa {
+  color: #295F94;
+  font-weight: bold;
+}
+.hl.kwb {
+  color: #B05A65;
+}
+.hl.kwc {
+  color: #55aa55;
+}
+.hl.kwd {
+  color: #BC5A65;
+  font-weight: bold;
+}
+</style>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>TeX Typesetting in R</title>
+    <style type="text/css">
+    @media print {
+      body { }
+      p.img { text-align: center; page-break-inside: avoid }
+      img.CC { display: inline }
+    }
+    @media screen {
+      body { max-width: 800px; margin: auto }
+      p.img { text-align: center }
+      img.CC { display: inline }
+    }
+    p.date {
+      font-size: smaller;
+      margin: 0;
+    }
+    p.versionHistory {
+      color: gray
+    }
+    p.versionHistory a {
+      color: gray
+    }
+    p.ref {
+      text-indent: -2em;
+      padding-left: 2em;
+    }
+    p.fig {
+      text-align: left;
+    }
+    p.fig img, img.plot {
+      box-shadow: 10px 10px 20px;
+      margin-top: 10px;
+      margin-bottom: 20px;      
+    }
+  </style>
+    <script>
+MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']]
+  }
+};
+  </script>
+    <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml.js">
+  </script>
+  </head>
+  <body>
+    <h1>TeX Typesetting in R: The 'xdvir' Package</h1>
+    <p>
+      <span style="font-style: italic">by Paul Murrell</span>
+      <a href="http://orcid.org">
+        <img alt="" src="https://www.stat.auckland.ac.nz/~paul/ORCID/ORCiD.png" style="width: 16px; height: 16px; vertical-align: middle">
+      </a>
+      <span style="font-family: mono; font-size: small">
+        <a href="http://orcid.org/0000-0002-3224-8858">http://orcid.org/0000-0002-3224-8858</a>
+      </span>
+    </p>
+    <p class="date">
+    Version 1:  
+Thursday 27 February 2025
+  </p>
+
+
+    <hr>
+    <p><a rel="license" href="http://creativecommons.org/licenses/by/4.0/"><img class="CC" alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by/4.0/88x31.png"></a><br><span xmlns:dct="http://purl.org/dc/terms/" property="dct:title">This document</span>
+    by <span xmlns:cc="http://creativecommons.org/ns#" property="cc:attributionName">Paul
+    Murrell</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative
+    Commons Attribution 4.0 International License</a>.
+  </p>
+    <hr>
+    <p>
+    This document describes the 'xdvir' package
+  </p>
+    <div>
+      <h2>Table of Contents:</h2>
+      <ul style="list-style: none">
+        <li>
+          <a href="#intro">1. Introduction</a>
+        </li>
+        <li>
+          <a href="#user">2. The 'xdvir' package</a>
+        </li>
+        <li>
+          <a href="#requirements">3. Technical requirements</a>
+        </li>
+        <li>
+          <a href="#Resources">4. Resources</a>
+        </li>
+        <li>
+          <a href="#references">5. References</a>
+        </li>
+      </ul>
+    </div>
+    <h2>
+      <a name="intro">1. Introduction</a>
+    </h2>
+    <p>
+    See ../RJournal/diagram/ for nice TikZ diagram of package structure.
+  </p>
+    <p>
+    Use the ChartAccent paper and its references to justify the
+    need for tools that can add annotations.
+  </p>
+    <p>
+    The image below shows an R plot with a text 
+    annotation.<a href="#beausoleil"><sup>1</sup></a>
+    It is easy to add a text annotation to a plot in R with
+    functions like <code>graphics::text()</code> and
+    <code>grid::grid.text()</code> or, at a higher-level,
+    <code>ggplot2::geom_text()</code> and 
+    <code>ggplot2::annotate()</code>.
+    However, there are some significant limitations to the sort
+    text annotation that those functions can produce.
+  </p>
+    <p>
+      <img src="Example/simplified.png" alt="plot with surprisingly complex text annotation" style="max-width: 100%">
+    </p>
+    <p>
+    The text annotation in the top-right corner of the plot 
+    above does not appear to be particularly special nor 
+    particularly complicated at
+    first glance, but it
+    harbours several important details:
+  </p>
+    <ul>
+      <li>
+        <p>
+        The text is a mixture of plain text and mathematical expressions
+        (like $\bar z_i$).
+        Furthermore, the mathematical expressions use a different font
+        (Computer Modern) than the plain text (TeX Gyre Adventor).
+      </p>
+        <p>
+        The R graphics system can draw mathematical expressions
+        (so-called "plotmath"; CITE) and that includes a mixture of 
+        plain text and mathematical expressions, but it can only use
+        the same font for the entire mixture.
+        Not to mention the fact that the typesetting of
+        mathematical expressions in R graphics is not particularly pretty.
+      </p>
+      </li>
+      <li>
+        <p>
+        The text is not all the same colour;  the final two words
+        (but not the full stop) are <span style="color: #DF536B">red</span>.
+      </p>
+        <p>
+        The R graphics system can only draw a character value
+        with a single colour.
+        The 'gridtext' and 'ggtext' packages (CITE) make it possible to
+        change colour within a character value, but they do
+        not allow a mixture of plain text and mathematical expressions.
+      </p>
+        <p>
+        MUST acknowledge 'geomtextpath' package too!
+      </p>
+      </li>
+      <li>
+        <p>
+        The text is broken over multiple lines.
+        Furthermore, the text is fully justified (not ragged-left or 
+        ragged-right justified)
+        <em>and</em> one of the words ("population") has been split across lines
+        and hyphenated.
+        Although it is not obvious from the plot itself, the 
+        line breaks were also automatically generated to fit the
+        text into a fixed width (3.5 inches).
+      </p>
+        <p>
+        The R graphics system can draw a character value
+        across multiple lines, but
+        only if explicit newlines are embedded in the character value
+        (i.e., the line breaks are manual).
+        The 'gridtext' and 'ggtext' 
+        packages can calculate simple
+        automated line breaks, but they will not break a word across lines
+        (or hyphenate)
+        and they cannot fully justify the resulting text.
+        The 'textshaping' package (CITE) 
+        can also calculate simple automated line 
+        breaks and even offers paragraph indenting 
+        (for the first line).  However, it also cannot split words
+        or fully justify the result.
+      </p>
+      </li>
+    </ul>
+    <p>
+    The features outlined above are all examples of <em>typesetting</em>;
+    determining an arrangement of 
+    individual characters and symbols (<em>glyphs</em>)
+    that could be as simple as placing one character after another
+    (from left to right),
+    but could also be as complex as arranging mathematical symbols,
+    splitting text into multiple columns,
+    or writing text vertically from top to bottom.
+  </p>
+    <p>
+    From R 4.3.0, it is possible to draw text from a set of typeset glyphs
+    using the functions <code>grDevices::glyphInfo()</code> and
+    <code>grid::grid.glyph()</code> (CITE).
+    However, that facility presupposes that we are able to generate
+    a set of typeset glyphs.  What is needed is a <em>typesetting system</em>
+    to generate a set of typeset glyphs.
+  </p>
+    <p>
+    The R graphics system is not a typesetting system.
+    Functions like <code>graphics::text()</code> and 
+    <code>grid::grid.text()</code> can only draw horizontal text
+    with explicit line breaks.
+    For example, the following code gets about as close as possible
+    to the desired result using existing text facilities.
+  </p>
+<div class="chunk" id="unnamed-chunk-3"><div class="rcode"><div class="output"><pre class="knitr r">  
+  left &lt;- unit(2.2, "native")
+  
+  grid.text("We `move' the original population\'s mean to",
+            left, unit(1, "npc") - unit(5, "mm"),
+            just=c("left", "top"))
+  grid.text(expression("a new "*bar(italic(z))[i]*" and calculate the average fitness"),
+            left, unit(1, "npc") - unit(5, "mm") - unit(1, "lines"),
+            just=c("left", "top"))
+  grid.text("at that new mean phenotype of the population", 
+            left, unit(1, "npc") - unit(5, "mm") - unit(2, "lines"),
+            just=c("left", "top"))
+  grid.text(expression("to get the adaptive landscape, "*bar(italic(W))[i]*", then"),
+            left, unit(1, "npc") - unit(5, "mm") - unit(3, "lines"),
+            just=c("left", "top"))
+  grid.text("we combine the population mean and the",
+            left, unit(1, "npc") - unit(5, "mm") - unit(4, "lines"),
+            just=c("left", "top"))
+  library(gridtext)
+  rg &lt;- richtext_grob(paste("average fitness to get the",
+                            '&lt;span style="color: #DF536B"&gt;fitness function&lt;/span&gt;'),
+            left, unit(1, "npc") - unit(5, "mm") - unit(5, "lines"),
+            hjust=0, vjust=1)  
+  grid.draw(rg)
+</pre></div>
+</div></div>
+    <p>
+      <img src="Example/simplified-base.png" alt="A base graphics version of the text annotation." style="max-width: 100%; margin: 0; padding: 0">
+    </p>
+    <p>
+    At first glance, the text annotation in the top-right corner of the
+    plot above does not appear to be terribly flawed, but the
+    annotation, and the code that is required to draw it, harbour
+    several important deficiencies:
+  </p>
+    <ul>
+      <li>
+        <p>
+        The text has had to be manually broken into separate 
+        <code>grid.text()</code> calls, one for each line.
+        This is at best awkward, but becomes truly problematic
+        if the line breaks have to be regenerated, for example,
+        if the plot needs to be redrawn at a different size.
+      </p>
+      </li>
+      <li>
+        <p>
+        The final line has to be a <code>gridtext::richtext_grob()</code>
+        call to achieve the change in colour.  This only works in this case
+        because there is no math on that line.        
+      </p>
+      </li>
+      <li>
+        <p>
+        The text has a ragged-left alignment, rather than full justification,
+        because there is no way to achieve the latter with the text-drawing
+        facilities in R.  Hyphenation is not an option either.
+      </p>
+      </li>
+      <li>
+        <p>
+        The mathematical expressions are not as pretty.  Although R 
+        attempts to emulate the $\rm$TeX$ algorithm for laying out
+        mathematical expressions, it does not achieve the same level
+        of quality.
+      </p>
+      </li>
+      <li>
+        <p>
+        The line spacing is inconsistent;  the gap between the third and
+        fourth lines is larger than most and the gap between the fourth
+        and fifth lines is smaller.  This reflects the unsophisticated
+        approach R graphics has to the placement of text (and occurs
+        because the fourth line is taller than the others because of 
+        the bar over the capital "W").
+      </p>
+      </li>
+    </ul>
+    <p>
+    An example of a really good typesetting system is the $\rm\TeX$ system 
+    (CITE). $\rm\TeX$ provides both a language for describing complex
+    arrangements of text (and math) and a typesetting engine 
+    that can generate the final arrangment of glyphs.
+    For example, the following $\rm\TeX$ code provides instructions
+    for typesetting the annotation within a fixed width of 3.5 inches.
+  </p>
+<div class="chunk" id="unnamed-chunk-4"><div class="rcode"><div class="output"><pre class="knitr r">  \setmainfont{texgyreadventor}
+  \fontsize{12}{15}
+  \selectfont
+  \definecolor{Rred}{RGB}{223,83,107}
+  \begin{minipage}{3.5in}
+  We `move' the original population's mean to a new $\\bar z_i$ 
+  and calculate the average fitness at that new mean phenotype 
+  of the population to get the adaptive landscape, $\\bar W_i$, 
+  then we combine the population mean and the average fitness 
+  to get the \textcolor{Rred}{fitness function}.
+  \end{minipage}
+</pre></div>
+</div></div>
+    <p>
+    This report introduces the 'xdvir' package, which 
+    provides a bridge between $\rm\TeX$ and R and makes it possible
+    to produce more sophisticated text annotations.  
+    With the 'xdvir' package, drawing
+    the (nice version of the) text annotation only requires
+    the single function call below (with the <code>tex</code>
+    variable containing the $\rm\TeX$ code above).
+  </p>
+<div class="chunk" id="unnamed-chunk-5"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">grid.latex</span><span class="hl def">(tex,</span>
+           <span class="hl kwc">packages</span><span class="hl def">=</span><span class="hl sng">&quot;xcolor&quot;</span><span class="hl def">,</span>
+           <span class="hl kwc">x</span><span class="hl def">=</span><span class="hl kwd">unit</span><span class="hl def">(</span><span class="hl num">1</span><span class="hl def">,</span> <span class="hl sng">&quot;npc&quot;</span><span class="hl def">)</span> <span class="hl opt">-</span> <span class="hl kwd">unit</span><span class="hl def">(</span><span class="hl num">5</span><span class="hl def">,</span> <span class="hl sng">&quot;mm&quot;</span><span class="hl def">),</span>
+           <span class="hl kwc">y</span><span class="hl def">=</span><span class="hl kwd">unit</span><span class="hl def">(</span><span class="hl num">1</span><span class="hl def">,</span> <span class="hl sng">&quot;npc&quot;</span><span class="hl def">)</span> <span class="hl opt">-</span> <span class="hl kwd">unit</span><span class="hl def">(</span><span class="hl num">5</span><span class="hl def">,</span> <span class="hl sng">&quot;mm&quot;</span><span class="hl def">),</span>
+           <span class="hl kwc">hjust</span><span class="hl def">=</span><span class="hl sng">&quot;right&quot;</span><span class="hl def">,</span> <span class="hl kwc">vjust</span><span class="hl def">=</span><span class="hl sng">&quot;top&quot;</span><span class="hl def">)</span>
+</pre></div>
+</div></div>
+    <p>
+    The two versions of the annotated plot are reproduced below 
+    side-by-side to allow easier comparison.
+    Again, at first glance, the benefits of proper typesetting 
+    may not leap off the page, but if the detailed appearance of 
+    text labels and annotations are important to you
+    then the 'xdvir' package might be worth a look.
+  </p>
+    <!-- Get two images on same line because ...
+       the images are 50% width AND the paragraph has zero-size text 
+       (so the line break between images produces a zero-width space) -->
+    <p style="font-size: 0">
+      <img src="Example/simplified.png" alt="plot with surprisingly complex text annotation" style="max-width: 50%; margin: 0; padding: 0">
+      <img src="Example/simplified-base.png" alt="plot with surprisingly complex text annotation" style="max-width: 50%; margin: 0; padding: 0">
+    </p>
+    <p>
+      <strong>PROVIDE a map of the structure of the report</strong>
+    </p>
+
+    <p>
+    Another nice complex example of math annotations on  a plot
+
+    https://wjschne.github.io/posts/2023-07-23-latex-equation-in-ggplot2/
+
+    This is just as good as an {xdvir} annotation, 
+    BUT no use for titles etc?
+    AND harder to integrate with R plot, e.g., baseline alignment.
+  </p>
+    <h2>
+      <a name="user">2. The 'xdvir' package</a>
+    </h2>
+    <p><strong>Just the simple <code>grid.latex()</code> API</strong>.
+    Later sections can go into engines, packages, etc ...
+  </p>
+<div class="chunk" id="unnamed-chunk-7"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">library</span><span class="hl def">(xdvir)</span>
+</pre></div>
+</div></div>
+<div class="chunk" id="unnamed-chunk-8"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">options</span><span class="hl def">(</span><span class="hl kwc">xdvir.tinytex</span><span class="hl def">=</span><span class="hl num">FALSE</span><span class="hl def">)</span>
+<span class="hl kwd">options</span><span class="hl def">(</span><span class="hl kwc">xdvir.ttxCacheDir</span><span class="hl def">=</span><span class="hl sng">&quot;/scratch/TTXfonts/&quot;</span><span class="hl def">)</span>
+</pre></div>
+</div></div>
+    <p>
+    Examples:
+  </p>
+    <ul>
+      <li>
+        <p>
+        Simple text        
+      </p>
+<div class="chunk" id="unnamed-chunk-9"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl def">tex</span> <span class="hl kwb">&lt;-</span> <span class="hl sng">&quot;\\Huge test&quot;</span>
+</pre></div>
+</div></div>
+<div class="chunk" id="unnamed-chunk-10"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl kwd">grid.latex</span><span class="hl def">(tex)</span>
+</pre></div>
+</div></div>
+<div class="chunk" id="unnamed-chunk-11"><div class="rcode"><div class="warning"><pre class="knitr r">  Warning in typesetEngine.DVI(x): Guessing typesetting engine from DVI pre op comment
+</pre></div>
+<div class="warning"><pre class="knitr r">  Warning in typesetEngine.DVI(x): Unable to identify engine from DVI pre op comment (Generated by
+  xdvir); falling back to null engine
+</pre></div>
+<div class="warning"><pre class="knitr r">  Warning in engineCheck(e1, engine): TeX engine mismatch (null does not match XeTeX)
+</pre></div>
+<div class="warning"><pre class="knitr r">  Warning in typesetPackages.DVI(dvi): No packages in DVI; possible package mismatch with rendering
+  engine
+</pre></div>
+<div class="warning"><pre class="knitr r">  Warning in typesetEngine.DVI(x): Guessing typesetting engine from DVI pre op comment
+</pre></div>
+<div class="warning"><pre class="knitr r">  Warning in typesetEngine.DVI(x): Unable to identify engine from DVI pre op comment (Generated by
+  xdvir); falling back to null engine
+</pre></div>
+<div class="warning"><pre class="knitr r">  Warning in engineCheck(e1, engine): TeX engine mismatch (null does not match XeTeX)
+</pre></div>
+<div class="warning"><pre class="knitr r">  Warning in typesetPackages.DVI(X[[i]], ...): No packages in DVI; possible package mismatch with
+  rendering engine
+</pre></div>
+<div class="error"><pre class="knitr r">  Error in addFont(fontName): Font read failed
+</pre></div>
+</div></div>
+      </li>
+      <li>
+      Simple math (esp, including hrules)
+    </li>
+      <li>
+      dpi arg.
+      Gaussian equation a decent example
+      (though note that unicode-math means heavier rules!)
+    </li>
+<div class="chunk" id="unnamed-chunk-12"><div class="rcode"><div class="source"><pre class="knitr r"><span class="hl def">tex</span> <span class="hl kwb">&lt;-</span> <span class="hl sng">r&quot;(\huge $\Phi(z) = \frac{1}{\sqrt{2\pi}} \cdot e^{-\frac{z^2}{2}}$)&quot;</span>
+</pre></div>
+</div></div>
+      <li>
+      Tables, multi-column, etc
+    </li>
+      <li>
+      Combination of text and math
+    </li>
+      <li>
+      Various alignment options (esp, baseline, esp. with math)
+    </li>
+      <li>
+      Packages: Colours, fonts
+    </li>
+      <li>
+      Do example of creating graphicx package external to {xdvir}.
+    </li>
+      <li>
+      TikZ (and mixture of TikZ with text etc).
+      <code>tikzPackage()</code> vs <code>tikzPicture()</code>.
+    </li>
+      <li>
+      Vertical text
+    </li>
+      <li>
+      All of the above on different engines (mostly LuaTeX and XeTeX).
+    </li>
+    </ul>
+    <p>
+    Have a section that goes through how the first plot with
+    text annotation was made.
+  </p>
+    <p>
+    Have a section that looks at integrating with 'ggplot2',
+    'lattice', and 'graphics' plots.
+  </p>
+    <p>
+    Name check the 'dvir' package.
+  </p>
+    <p>
+    New focus on glyphGrob()s instead of textGrob()s.
+  </p>
+    <p>
+    Caching mechanism so only first typeset of TeX string is slow.
+  </p>
+    <p>
+    baseline support (via 'preview' at least).
+    Puts <code>dvir-preview</code> output with height, depth, and width in DVI file.
+    Sets "preview-baseline" (vertical) anchor.
+    Used for aligning grid.typeset() for now.
+    Could be used for more sophisticated alignment of grid.*latex()
+    as well in future (?).
+  </p>
+    <p>
+    XeTeX support, which is a bit incomplete.
+    Fits nicely into glyphGrob() because op 253 represents glyphs
+    by glyph index (within font)!
+  </p>
+    <p>
+    Support for colours (via 'xcolor' at least).
+    <code>grid.lualatexTypeset()</code> and <code>grid.xelatexTypeset)</code> default
+    to using both 'preview' and 'xcolor'.
+    Need to add support for colour with <code>grid.latex()</code> etc.
+  </p>
+    <p>
+    fontspec support (as package)
+  </p>
+    <p>
+    upTeX support for vertical text direction (e.g., Japanese).
+    The 'patchDVI' vignette "Using Sweave and patchDVI with Japanese
+    text" has some advice for which LaTeX packages and settings to
+    use for Japanese text.
+  </p>
+    <p>
+    NOTE that these features are all pretty much orthogonal.
+  </p>
+    <p>
+    Talk about 'tinytex' as possibly convenient way to get TeX
+    installation on non-Linux (esp. Windows)?
+    'xdvir' will automatically use tinytex::latexmk() if it
+    detects that 'tinytex' is installed.
+    The <code>tinytex</code> argument to typeset() et al allows override.
+    ALSO options("xdvir.tinytex").
+  </p>
+    <p>
+    Talk about 'fonttools' as possibly convenient way to get Python/fontTools
+    installation on non-Linux (esp. Windows)?
+    'xdvir' will automatically switch to "font library" based on 'fonttools'
+    (rather than 'ttx' and 'fontforge') if it detects that 'fonttools' is
+    installed.  The <code>fontLibrary</code> argument to 
+    <code>dviGrob</code> et al allows override.
+    ALSO options("xdvir.fontLibrary").
+  </p>
+    <p>
+    Font library (and default and setting and how to define one, including
+    the argument list for all methods).
+  </p>
+    <p>
+    Package message on start up that reports on availability and
+    versions of tools.
+  </p>
+    <p>
+    Summary of install options:
+  </p>
+    <ul>
+      <li>
+      Just install 'xdvir' but you are then responsible for TeX install
+      and ttx (fontTools) and fontforge.  This should be straightforward
+      on Linux.
+    </li>
+      <li>
+        <p>
+        Install 'xdvir' plus 'tinytex' plus 'fonttools' and use
+        convenience functions from 'tinytex' to install TeX and
+        from 'fonttools' to install fontTools.
+        See DVI/Testing/xdvir/Windows/README.
+        This should be straightforward on Windows.
+      </p>
+        <p>
+        NOTE that this will be REALLY slow the first use ('tinytex'
+        has to install the necessary LaTeX packages).
+      </p>
+      </li>
+      <li>
+      Various mix-and-match options, including having existing
+      Python and 'reticulate' installs, though these have NOT been
+      tested and the user is ON THEIR OWN.
+    </li>
+    </ul>
+    <p>
+    Interleaving text glyphs and other drawing (e.g., TikZ):
+    retaining order of drawing means getting multiple glyph grobs.
+  </p>
+    <p>
+    Caching font info (when use ttx).
+    HORRIBLY slow (when use ttx) the first time a font is used 
+    (in a session) as font is deconstructed and read in.
+    Option to set <code>xdvir.ttxCacheDir</code>.
+    Watch out for multiple R sessions sharing a font cache!?
+    (need to "lock" the font cache when writing to it?
+     and error out if you try to write to it while it is locked?
+     is a race condition possible?)
+  </p>
+    <p>
+    Could have a section on efficiency, especially for things like
+    R markdown documents that get run over and over again.
+    Use author(), typeset(),
+    and readDVI() so do not keep having to rerun TeX engine.
+    Generate latexGrob() so do not have to keep running that step
+    (may also have to use forceGrob() IF make a makeContent() method
+    so that calculations are redone on, e.g., device resize).
+  </p>
+    <p>
+    BIG mention of Type 1 fonts ([mostly] not supported) vs True Type
+    and Open Type.
+  </p>
+    <p>
+    Because we use grid.glyph(), only works with R &gt;= 4.3.0 and 
+    on Cairo, or pdf(), or quartz() (so far).
+  </p>
+    <p>
+    Note on embedding fonts in pdf() - convenience function to
+    extract glyphInfos from dviGrob to feed to embedGlyphs() ?
+    NOTE that embedGlyphs() can now accept list of glyphInfo
+    (which is necessary because dviGrob will often contain more
+    than one glyphGrob).
+  </p>
+    <p>
+    Because we use grid.glyph(), lualatexGrob()s (et al) are
+    specific to computer that they are created on (for font file
+    paths). OTOH, that is also true of the DVI files that contain
+    font file paths!!  (XeTeX and modern LuaTeX).
+  </p>
+    <p>
+    Packages:  convenient (yet flexible) specification of packages
+    via aliases;  new packages can be defined by users and added
+    to the package register;  package definition consists of 
+    preamble, prefix, suffix, and special (simple example is xcolor,
+    incredibly complex example is tikz, somewhere in between
+    is preview).
+  </p>
+    <p>
+    Package complications:  order matters, both for loading packages,
+    but even more for nesting of prefixes/suffixes.
+  </p>
+    <p>
+    Breakdown of 'xdvir' components.
+    functions like <code>lualatexGrob()</code> hide multiple
+    steps:  <code>author()</code> to generate TeX document from
+    TeX fragment;  <code>typeset()</code> to generate DVI file from
+    TeX document;  <code>readDVI()</code> to read DVI file into R;
+    <code>dviGrob()</code> to generate grobs from DVI.
+    All of those, except <code>readDVI()</code> take an
+    <code>engine</code> argument.
+    Both <code>author()</code> and <code>dviGrob()</code> also
+    take a <code>packages</code> argument.
+    Ideally <code>engine</code> and <code>packages</code>
+    would be consistent across calls, but variations
+    are possible and should not break even if they drop some features (?).
+    The structure also allows entry points other than a TeX fragment.
+    For example, you can write your own TeX document and you can even
+    start from a DVI file generated elsewhere.  However, in those cases
+    you REALLY need to know what you are doing and you need to carefully
+    select at least an appropriate engine, if not also packages.
+    Can even make a new engine BUT NOTE that engine "options" must
+    be a character vector (one value per option).
+  </p>
+    <p>
+      <img src="Diagram/system.png" alt="Diagram of 'xdvir' components" style="max-width: 100%">
+    </p>
+    <p>
+    Detailed discussion of differences from 'dvir':
+    reimplementation of lualatex support;
+    no fontconfig;
+    no subset fonts;
+    no viewport;
+    glyphs not text;
+    font files not font family etc;
+    not device-specific (although only devices with dev-&gt;glyph() support);
+    all metrics via fonts rather than via dev-&gt;stringMetric();
+    no need to map TeX font to stupid R font spec.
+  </p>
+    <p>
+    Related work:  'latex2exp' (convert LaTeX to R expression, still drawn
+    using plotmath);  'tikzDevice' (put R in TeX rather than the other way
+    around - no longer maintained?);  'textshaping' (limited typesetting);
+    'geomtextpath' (text along a path!);  'ggpage' (draws paragraphs of text
+    BUT with very simplistic typesetting algorithm based on 
+    stringr::str_wrap()?); 
+
+    <a href="https://matplotlib.org/stable/tutorials/text/usetex.html">Text rendering with LaTeX</a> in matplotlib (in Python).
+That mentions some limitations.
+This one mentions cache to avoid processing same tex twice
+https://matplotlib.org/stable/gallery/text_labels_and_annotations/tex_demo.html 
+
+    'marquee' (!!) under development.
+
+    dvi-decode javascript module for rendering DVI in browser
+    https://latex.org/forum/viewtopic.php?t=35259
+    (this has some very familiar constraints ...
+    https://github.com/matjp/dvi-decode)
+
+    Commercial product
+    Using LaTeX to Add Mathematical Expressions to Plot Titles | COMSOL Blog
+    https://www.comsol.com/blogs/using-latex-to-add-mathematical-expressions-to-plot-titles#:~:text=To%20add%20LaTeX%20commands%20in,for%20the%20display%20math%20mode
+
+  </p>
+    <p>
+    Future work:
+    
+    Integrate 'xdvir' with 'tikzDevice' 
+    =&gt; latex in grid in latex ...
+
+    add interface to allow latex in ggplot2 titles etc
+    as per ggtext and marquee.
+  </p>
+    <p>
+    Limitations:
+
+    need device with glyph support;
+    XeTeX and LuaTeX only;
+    LuaTeX only if luaotfload-tool verion is &gt; 3.15;
+    May need recent LuaTeX (e.g., 1.17.0 as available on Ubuntu 24.04)
+    to get reliable full font file paths (and glyph ids) in DVI output;
+    must specify fonts by file path when using fontspec
+
+    Specifying 'width' is approximate - use minipage to get more 
+    precise and reliable control.
+  </p>
+    <h2>
+      <a name="requirements">3. Technical requirements</a>
+    </h2>
+    <p>
+    The examples and discussion in this report relate to 
+    R version 4.3.0 and 'dvir' version 0.4-0.
+    Any example using <code>embedGlyphs()</code> (to embed fonts in PDF
+    output) with <em>list</em> of glyph info
+    will need R-devel!
+  </p>
+    <p>
+    This report was generated within a Docker container
+    (see <a href="#Resources">Resources</a> section below).
+  </p>
+    <h2>
+      <a name="Resources">4. Resources</a>
+    </h2>
+    <ul>
+      <li>
+      The <a href="xetex.cml">raw source file</a> for this
+      report, a <a href="xetex.xml">valid XML</a>
+      transformation of the source file, a <a href="xetex.Rhtml">'knitr' document</a> generated from
+      the XML file, 
+      two <a href="toc.R">R</a> <a href="bib.R">files</a> and
+      the <a href="xetex.bib">bibtex file</a>
+      that are used to generate the table of contents and reference sections,
+      two <a href="common.xsl">XSL</a> <a href="knitr.xsl">files</a> and an 
+      <a href="knit.R">R file</a> that are used to transform the XML to
+      the 'knitr' document, and a <a href="Makefile">Makefile</a> that
+      contains code for the other transformations and coordinates
+      everything.  
+      These materials are also available
+      on <a href="https://github.com/pmur002/xetex-report/releases/tag/v1">github</a>.
+    </li>
+      <li>
+      This report was generated within a 
+      <a href="https://www.docker.com/">Docker</a> container.
+      The Docker command to build the report is included in the Makefile above.
+      The Docker image for the container is available from
+      <a href="https://hub.docker.com/r/pmur002/xetex-report/">Docker Hub</a>;
+      alternatively, the image can be rebuilt from its 
+      <a href="Dockerfile">Dockerfile</a>.
+    </li>
+    </ul>
+    <h2>How to cite this report</h2>
+    <p>
+    Murrell, P. (2022). "" 
+    Technical Report 2022-??, Department of Statistics, The University of Auckland. 
+    Version 1.
+    [ <a href="how-to-cite.bib">bib</a> |
+      <a href="http://dx.doi.org/">DOI</a> | 
+      <a href="https://stattech.blogs.auckland.ac.nz/">http</a> ]
+  </p>
+    <h2>
+      <a name="references">5. References</a>
+    </h2>
+    <dl>
+      <dt>
+[<a name="R">R Core Team, 2019</a>]
+</dt>
+      <dd>
+R Core Team (2019).
+ <em>R: A Language and Environment for Statistical Computing</em>.
+ R Foundation for Statistical Computing, Vienna, Austria.
+[ <a href="xdvir-bib_bib.html#R">bib</a> | 
+<a href="https://www.R-project.org/">http</a> ]
+
+</dd>
+    </dl>
+    <h2>Footnotes</h2>
+    <div>
+      <p class="footnote"><sup>1</sup> 
+g     <a name="beausoleil"></a>
+      This plot example was inspired by a 
+      <a href="https://stackoverflow.com/questions/75889406/typing-long-text-in-legend-with-automatic-line-return-and-mathematical-notation">post on 
+      Stack Overflow</a> by Marc-Olivier Beausoleil.
+      The final image is a simplified version of one frame from an 
+      animation that was designed to explain the derivation of 
+      an "adaptive landscape" from a "fitness function".
+      Many thanks to Marc-Olivier for sharing his code.
+    </p>
+    </div>
+    <hr>
+    <p><a rel="license" href="http://creativecommons.org/licenses/by/4.0/"><img class="CC" alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by/4.0/88x31.png"></a><br><span xmlns:dct="http://purl.org/dc/terms/" property="dct:title">This document</span>
+    by <span xmlns:cc="http://creativecommons.org/ns#" property="cc:attributionName">Paul
+    Murrell</span> is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative
+    Commons Attribution 4.0 International License</a>.
+  </p>
+  </body>
+</html>

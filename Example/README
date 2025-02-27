@@ -1,0 +1,39 @@
+
++ Plot with text annotation based on example from Marc-Olivier Beausoleil ...
+
+  ./simplified.R
+
+  ... and more complete version ...
+
+  ./annotate.R
+
+
++ Example from Marc-Olivier Beausoleil
+
+  ./gif.walking.adaptive.landscape.R
+
+  The code did NOT fully run for me - the image_animate() call ran out
+  of resources - BUT the PNG frames were built by then so I just ...
+
+  ffmpeg -i output/adaptive_land.animation/_fitplot.gif/adapt.land.example%03d.png output/adaptive_land.animation.gif
+
+  ... which is too fast on the initial frames, but ...
+
+  The animation is not so important to me - I just need one of the frames
+  as an example of a plot that includes a text label that requires some
+  typesetting that appears simple, but actually involves some things that
+  you need LaTeX for (like math and full justification and hyphenation).
+
+
++ Marc-Olivier Beausoleil's original SO post ...
+
+  ./SO-2023-03.R
+
+  ... including my response, which produces ...
+
+  ./demo.png
+
+
++ An older SO post ...
+
+  ./SO-2021-02.R

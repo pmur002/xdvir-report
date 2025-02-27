@@ -1,0 +1,26 @@
+
+  <p>
+    As introductory examples, could use problems that people have with
+    multiline plotmath.  There are lots of these on stack overflow
+    (e.g., https://stackoverflow.com/questions/50671934/annotate-ggplot-plot-with-a-multiline-expression-with-objects)
+  </p>
+  <p>
+    <a href="https://stackoverflow.com/questions/1395105/getting-latex-into-r-plots">question on SO</a> about "Getting LaTeX into R Plots"
+    (with links to 'latex2exp' amd 'tikzDevice' and text.usetex in
+    matplotlib.
+  </p>
+  <p>
+    <a href="https://stackoverflow.com/questions/54734381/skewing-text-display">question on SO</a> about "Skewing text display" (skew transformation).
+  </p>
+  <p>
+    Allan Cameron's <a href="https://github.com/AllanCameron/geomtextpath">'geomtextpath'</a>.
+  </p>
+  <p>
+    <a href="https://stackoverflow.com/questions/49756457/wrap-long-text-in-a-text-box">question on SO</a> about "Wrap long text in a text box".
+  </p>
+  <p>
+    <a href="https://stackoverflow.com/questions/29303480/text-labels-with-outline-in-r">question on SO</a> about drawing text outline.
+  </p>
+  <p>
+    <a href="https://stackoverflow.com/questions/20315962/r-text-formatting-of-plot-label-text-strikethrough">question on SO</a> about strikethrough text.
+  </p>
