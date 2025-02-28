@@ -91,13 +91,31 @@ options(bitmapType="cairo")
           <a href="#intro">1. Introduction</a>
         </li>
         <li>
-          <a href="#requirements">2. Technical requirements</a>
+          <a href="#author">2. Authoring</a>
         </li>
         <li>
-          <a href="#Resources">3. Resources</a>
+          <a href="#typeset">3. Typesetting</a>
         </li>
         <li>
-          <a href="#references">4. References</a>
+          <a href="#render">4. Rendering</a>
+        </li>
+        <li>
+          <a href="#packages">5. Packages</a>
+        </li>
+        <li>
+          <a href="#engines">6. Engines</a>
+        </li>
+        <li>
+          <a href="#fontlibs">7. Font libraries</a>
+        </li>
+        <li>
+          <a href="#requirements">8. Technical requirements</a>
+        </li>
+        <li>
+          <a href="#Resources">9. Resources</a>
+        </li>
+        <li>
+          <a href="#references">10. References</a>
         </li>
       </ul>
     </div>
@@ -150,7 +168,9 @@ library(xdvir)
     <p>
     This document begins by taking a closer look at each of those three steps.
   </p>
-    <h2>Authoring</h2>
+    <h2>
+      <a name="author">2. Authoring</a>
+    </h2>
     <p>
     The <code>author()</code> function turns a LaTeX fragment into 
     a LaTeX document.  This consists of adding additional
@@ -201,7 +221,11 @@ author(fragment, width=2)
     The comment on the first line records information about the version of
     'xdvir', the TeX engine that was used to author the document, and the LaTeX
     packages that were specified.  As noted previously, the engine defaults on
-    package startup.
+    package startup.  This information is used in the typesetting step
+    to check that compatible TeX engines and packages are used in different
+    steps.
+  </p>
+    <p>
     We can use the <code>engine</code> and
     <code>packages</code> arguments to <code>author()</code> to explicitly set
     those values.  Notice that the addition of <code>packages="xcolor"</code>
@@ -220,8 +244,27 @@ author(fragment, engine="xetex", packages="xcolor")
 author(fragment, packages="preview")    
   ]]></rcode>
     <p>
-    Where packages add a lot
-    of additional code to the documenbt like this, there is a risk of 
+    Functions like <code>grid.latex()</code> and <code>geom_latex()</code>
+    also add additional code to LaTeX fragments in order to 
+    match the current font family, font face, and font size.
+    We can easily see this if we use the <code>texFile</code> argument
+    to control the name of the file that 'xdvir' writes a full LaTeX
+    document into.
+    For example, the following code draws a simple LaTeX fragment
+    and automatically matches the R default font family (rather than
+    using the default LaTeX Computer Modern font).
+    This is implemented by adding <code>\setmainfont</code> and
+    <code>\fontsize</code> commands to the LaTeX document 
+    (plus <code>\usepackage{fontspec}</code>).
+  </p>
+    <rcode fig.width="1" fig.height=".5"><![CDATA[
+grid.latex(fragment, texFile="test.tex")
+cat(readLines("test.tex"), sep="\n")
+  ]]></rcode>
+    <p>
+    Where user-level functions add a lot
+    of additional code to the LaTeX fragment, like the examples above, 
+    there is a risk of 
     conflicting with the LaTeX fragment and/or a risk of 
     packages conflicting with each other.  This is one possible
     reason for authoring a LaTeX document directly rather than relying
@@ -237,11 +280,220 @@ author(fragment, packages="preview")
     <p>
     We will talk more about engines and packages later on.
   </p>
-    <h2>TODO</h2>
+    <h2>
+      <a name="typeset">3. Typesetting</a>
+    </h2>
     <p>
-    Debugging - mostly manually typesetting to check that your LaTeX
-    fragment is not complete bullshit.
+    The <code>typeset()</code> function processes a LaTeX document
+    to a <code>"DVI"</code> object.
+    The LaTeX document can be a <code>"LaTeXdocument"</code>
+    object, as produced by <code>author()</code>
+    or just a character vector (though the latter must be a complete
+    LaTeX document, not just a LaTeX fragment).
   </p>
+    <rcode><![CDATA[
+doc <- author(fragment)
+dvi <- typeset(doc)
+dvi
+  ]]></rcode>
+    <p>
+    The <code>typeset()</code> function generates a DVI file by 
+    writing the LaTeX document to a file and running a TeX engine
+    to produce a DVI file.
+    'xdvir' makes use of <code>latexmk()</code> from the 'tinytex'
+    package for this step, which automatically takes care of 
+    multiple runs of the TeX engine and even installing missing 
+    LaTeX packages in at least some cases.
+  </p>
+    <p>
+    The <code>"DVI"</code> object has a print method to show the contents
+    of a DVI file in a human-readable format.
+    Underneath, it is a list of <code>"rawFormat"</code>
+    objects from the 'hexView' package;  labelled blocks of 
+    raw bytes along with interpreted values (integers, strings, etc).
+  </p>
+    <rcode><![CDATA[
+dvi[[1]]
+  ]]></rcode>
+    <p>
+    Notice that <code>typeset()</code> embeds a "signature" in
+    the <code>pre</code> operation of the DVI file that records 
+    information about the 'xdvir' version, the TeX engine used,
+    and any LaTeX packages used.  This information is used in the
+    rendering step 
+    to check that compatible TeX engines and packages are used in different
+    steps.
+  </p>
+    <p>
+    There is an <code>engine</code> argument to allow the TeX engine
+    to be specified, but it will default from information in the
+    LaTeX document if that exists.
+  </p>
+    <h3>Debugging</h3>
+    <p>    
+    The typesetting step is probably where most user problems will occur, 
+    most probably because the LaTeX fragment (or the LaTeX
+    document) contains an error, so the call to a TeX engine fails.
+  </p>
+    <rcode><![CDATA[
+bugFrag <- paste(fragment, "$")
+docBug <- author(bugFrag)
+typeset(docBug)
+  ]]></rcode>
+    <p>
+    The <code>texFile</code> argument is useful in cases like this because
+    the <code>.log</code> file will be in the same location as the
+    <code>texFile</code>, so we can easily see what the problem is.
+    Using <code>texFile</code> is also a good way to
+    easily get hold of the LaTeX document and run a TeX engine on it
+    outside of R to debug the problem.
+  </p>
+    <h3>Caching</h3>
+    <p>
+    'xdvir' automatically caches typsetting results. If the combination of
+    LaTeX document, TeX engine, and LaTeX packages has been seen before
+    then a cached <code>"DVI"</code> object will be used.
+  </p>
+    <p>
+    For debugging problems, it can be useful to turn off caching 
+    with <code>options(xdvir.useDVIcache=FALSE)</code>.
+  </p>
+    <h3>Manual typesetting</h3>
+    <p>
+    Because <code>typeset()</code> accepts a simple character vector,
+    it is easy to author a LaTeX document outside of R and
+    just <code>readLines()</code> that document to pass it to 
+    <code>typeset</code>.
+  </p>
+    <rcode><![CDATA[
+doc <- readLines("test.tex")
+dvi <- typeset(doc)
+  ]]></rcode>
+    <p>
+    It is also possible to perform the typesetting outside of R and
+    just read a DVI file in using <code>readDVI()</code>.
+    The important thing here is to make sure that you produce a DVI file.
+    (The funny-looking construction of the <code>command</code>
+    below is just to avoid 'knitr' errors.)
+  </p>
+    <rcode><![CDATA[
+arg <- "-no-pdf"
+command <- sprintf("xelatex -%s test.tex", arg)
+system(command)
+dvi <- readDVI("test.xdv")
+  ]]></rcode>
+    <h2>
+      <a name="render">4. Rendering</a>
+    </h2>
+    <p>
+    The <code>render()</code> function renders a <code>"DVI"</code>
+    object.  This is an alias for <code>grid.dvi()</code> - the rendering
+    happens within the current 'grid' viewport.
+  </p>
+    <rcode fig.width="1" fig.height=".5"><![CDATA[
+render(dvi)
+  ]]></rcode>
+    <p>
+    Rendering consists of two steps internally:
+  </p>
+    <ol>
+      <li>
+        <p>
+        We walk the list of DVI operations and build a list of 
+        objects, mostly either <code>"XDVIRglyphObjglyph"</code> objects, 
+        which describe
+        glyphs, the fonts they come from, and where to draw them, 
+        or <code>"XDVIRruleObj"</code>, which correspond to rectangles to draw
+        (the only core TeX drawing operation).        
+      </p>
+        <p>
+        This step also gathers bounding box information which is vital
+        for sizing and positioning the grobs that are produced in the
+        second step.
+      </p>
+      </li>
+      <li>
+        <p>
+        We walk the list of objects and build a gTree of grobs,
+        mostly either <code>"glyphgrob"</code>s, <code>"rect"</code> grobs,
+        or <code>"segments"</code> grobs.
+      </p>
+        <p>
+        Consecutive glyph operations in the DVI file are collapsed into
+        a single <code>"glyphgrob"</code>, but we may end up with
+        multiple <code>"glyphgrob"</code>s if, for example, 
+        a mathematical equation includes a horizontal line.
+        In that case, in order to preserve the order of drawing,
+        we end up with a <code>"glyphgrob"</code> for one or more
+        glyphs before a <code>"rect"</code> then another 
+        <code>"glyphgrob"</code> for one or more further glyphs.
+      </p>
+      </li>
+    </ol>
+    <p>
+    Justification of the rendering is complicated because we 
+    potentially need to
+    justify a combination of multiple <code>"glyphgrob"</code>s, plus
+    lines and/or rectangles.
+    The solution is to generate common "anchors" for all
+    <code>"glyphgrob"</code>s based on the bounding box for the 
+    rendering and to calculate an "offset" for lines and rectangles
+    based on how much a "dummy" glyph positioned at the bottom-left of
+    the bounding box would have to move to satisfy the justification.
+  </p>
+    <h3>Packages, engines, and font libraries</h3>
+    <p>
+    It is possible to specify the <code>packages</code> and
+    <code>engine</code> for rendering, though they will be taken
+    from the <code>"DVI"</code> object if possible.
+    Checks are made for inconsistency between the user specification
+    and the signature in the <code>"DVI"</code> object, if there is one.
+  </p>
+    <p>
+    It is also possible to specify a font library, which is used to
+    get glyph metrics (for calculating glyph positions and the overall
+    bounding box).  There is a default font library based on FreeType
+    (CITE) and no other option is provided (on CRAN).
+    Section <a href="#fontlibs">Font libraries</a> has more information.
+  </p>
+    <h3>Vectorisation</h3>
+    <p>
+    The <code>render()</code> function is vectorised.
+    The <code>dvi</code> argument to <code>render()</code> can be
+    a list of <code>"DVI"</code> objects, 
+    which can each be drawn at different (<code>x</code>, <code>y</code>)
+    locations, at different <code>rot</code>ations,  and
+    with different <code>hjust</code> and <code>vjust</code>
+    justitications.
+    The <code>gp</code> settings are also vectorised and applied
+    to the corresponding <code>"DVI"</code> object.
+    On the other hand, the <code>packages</code>, <code>engine</code>,
+    and <code>fontLib</code> are fixed for all <code>"DVI"</code> objects.
+  </p>
+    <p>
+    A <code>margin</code> and <code>rot</code>ation can be specified
+    for rendering and these are implemented via viewports on the
+    overall gTree.
+  </p>
+    <h3>Resolution</h3>
+    <p>
+    dpi
+  </p>
+    <h3>Multiple pages</h3>
+    <h2>
+      <a name="packages">5. Packages</a>
+    </h2>
+    <h2>
+      <a name="engines">6. Engines</a>
+    </h2>
+    <h2>
+      <a name="fontlibs">7. Font libraries</a>
+    </h2>
+    <h2>TikZ</h2>
+    <p>
+    There are TikZ obejcts
+  </p>
+    <h2>TODO</h2>
     <p>
     Use the ChartAccent paper and its references to justify the
     need for tools that can add annotations.
@@ -288,12 +540,7 @@ tex <- r"(\huge $\Phi(z) = \frac{1}{\sqrt{2\pi}} \cdot e^{-\frac{z^2}{2}}$)"
     </li>
     </ul>
     <p>
-    Have a section that goes through how the first plot with
-    text annotation was made.
-  </p>
-    <p>
-    Have a section that looks at integrating with 'ggplot2',
-    'lattice', and 'graphics' plots.
+    Delayed rendering from grid.latex() - when, why, how
   </p>
     <p>
     Name check the 'dvir' package.
@@ -302,20 +549,12 @@ tex <- r"(\huge $\Phi(z) = \frac{1}{\sqrt{2\pi}} \cdot e^{-\frac{z^2}{2}}$)"
     New focus on glyphGrob()s instead of textGrob()s.
   </p>
     <p>
-    Caching mechanism so only first typeset of TeX string is slow.
-  </p>
-    <p>
     baseline support (via 'preview' at least).
     Puts <code>dvir-preview</code> output with height, depth, and width in DVI file.
     Sets "preview-baseline" (vertical) anchor.
     Used for aligning grid.typeset() for now.
     Could be used for more sophisticated alignment of grid.*latex()
     as well in future (?).
-  </p>
-    <p>
-    XeTeX support, which is a bit incomplete.
-    Fits nicely into glyphGrob() because op 253 represents glyphs
-    by glyph index (within font)!
   </p>
     <p>
     Support for colours (via 'xcolor' at least).
@@ -336,23 +575,6 @@ tex <- r"(\huge $\Phi(z) = \frac{1}{\sqrt{2\pi}} \cdot e^{-\frac{z^2}{2}}$)"
     NOTE that these features are all pretty much orthogonal.
   </p>
     <p>
-    Talk about 'tinytex' as possibly convenient way to get TeX
-    installation on non-Linux (esp. Windows)?
-    'xdvir' will automatically use tinytex::latexmk() if it
-    detects that 'tinytex' is installed.
-    The <code>tinytex</code> argument to typeset() et al allows override.
-    ALSO options("xdvir.tinytex").
-  </p>
-    <p>
-    Talk about 'fonttools' as possibly convenient way to get Python/fontTools
-    installation on non-Linux (esp. Windows)?
-    'xdvir' will automatically switch to "font library" based on 'fonttools'
-    (rather than 'ttx' and 'fontforge') if it detects that 'fonttools' is
-    installed.  The <code>fontLibrary</code> argument to 
-    <code>dviGrob</code> et al allows override.
-    ALSO options("xdvir.fontLibrary").
-  </p>
-    <p>
     Font library (and default and setting and how to define one, including
     the argument list for all methods).
   </p>
@@ -362,45 +584,6 @@ tex <- r"(\huge $\Phi(z) = \frac{1}{\sqrt{2\pi}} \cdot e^{-\frac{z^2}{2}}$)"
   </p>
     <p>
     Summary of install options:
-  </p>
-    <ul>
-      <li>
-      Just install 'xdvir' but you are then responsible for TeX install
-      and ttx (fontTools) and fontforge.  This should be straightforward
-      on Linux.
-    </li>
-      <li>
-        <p>
-        Install 'xdvir' plus 'tinytex' plus 'fonttools' and use
-        convenience functions from 'tinytex' to install TeX and
-        from 'fonttools' to install fontTools.
-        See DVI/Testing/xdvir/Windows/README.
-        This should be straightforward on Windows.
-      </p>
-        <p>
-        NOTE that this will be REALLY slow the first use ('tinytex'
-        has to install the necessary LaTeX packages).
-      </p>
-      </li>
-      <li>
-      Various mix-and-match options, including having existing
-      Python and 'reticulate' installs, though these have NOT been
-      tested and the user is ON THEIR OWN.
-    </li>
-    </ul>
-    <p>
-    Interleaving text glyphs and other drawing (e.g., TikZ):
-    retaining order of drawing means getting multiple glyph grobs.
-  </p>
-    <p>
-    Caching font info (when use ttx).
-    HORRIBLY slow (when use ttx) the first time a font is used 
-    (in a session) as font is deconstructed and read in.
-    Option to set <code>xdvir.ttxCacheDir</code>.
-    Watch out for multiple R sessions sharing a font cache!?
-    (need to "lock" the font cache when writing to it?
-     and error out if you try to write to it while it is locked?
-     is a race condition possible?)
   </p>
     <p>
     Could have a section on efficiency, especially for things like
@@ -529,7 +712,7 @@ https://matplotlib.org/stable/gallery/text_labels_and_annotations/tex_demo.html
     precise and reliable control.
   </p>
     <h2>
-      <a name="requirements">2. Technical requirements</a>
+      <a name="requirements">8. Technical requirements</a>
     </h2>
     <p>
     The examples and discussion in this report relate to 
@@ -543,7 +726,7 @@ https://matplotlib.org/stable/gallery/text_labels_and_annotations/tex_demo.html
     (see <a href="#Resources">Resources</a> section below).
   </p>
     <h2>
-      <a name="Resources">3. Resources</a>
+      <a name="Resources">9. Resources</a>
     </h2>
     <ul>
       <li>
@@ -582,7 +765,7 @@ https://matplotlib.org/stable/gallery/text_labels_and_annotations/tex_demo.html
       <a href="https://stattech.blogs.auckland.ac.nz/">http</a> ]
   </p>
     <h2>
-      <a name="references">4. References</a>
+      <a name="references">10. References</a>
     </h2>
     <ul style="list-style-type: none">
       <li>
