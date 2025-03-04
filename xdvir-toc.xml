@@ -82,7 +82,9 @@ options(bitmapType="cairo")
   </p>
     <hr/>
     <p>
-    This document describes the 'xdvir' package
+    This document describes some lower-level, technical details
+    of the CRAN package 'xdvir' for rendering LaTeX fragments
+    as labels and annotations on R plots.
   </p>
     <div>
       <h2>Table of Contents:</h2>
@@ -103,19 +105,25 @@ options(bitmapType="cairo")
           <a href="#packages">5. Packages</a>
         </li>
         <li>
-          <a href="#engines">6. Engines</a>
+          <a href="#tikz">6. TikZ</a>
         </li>
         <li>
-          <a href="#fontlibs">7. Font libraries</a>
+          <a href="#engines">7. Engines</a>
         </li>
         <li>
-          <a href="#requirements">8. Technical requirements</a>
+          <a href="#fontlibs">8. Font libraries</a>
         </li>
         <li>
-          <a href="#Resources">9. Resources</a>
+          <a href="#discussion">9. Discussion</a>
         </li>
         <li>
-          <a href="#references">10. References</a>
+          <a href="#requirements">10. Technical requirements</a>
+        </li>
+        <li>
+          <a href="#Resources">11. Resources</a>
+        </li>
+        <li>
+          <a href="#references">12. References</a>
         </li>
       </ul>
     </div>
@@ -126,10 +134,12 @@ options(bitmapType="cairo")
     The 'xdvir' package for R 
     (<a href="#xdvir-pkg"/>) 
     allows LaTeX fragments to be used as
-    labels and annotations on R plots.  The 
+    labels and annotations on R plots,
+    including 'ggplot2' plots.  The 
     package vignette describes basic high-level usage 
     and an article submitted to the R Journal
-    explains more and has more complex examples.
+    explains more about the standard usage of the package 
+    and has more complex examples.
     The purpose of this document is to provide a description
     of some more advanced uses of the package, including ways to
     extend the package, and to provide a record of the 
@@ -159,7 +169,8 @@ library(xdvir)
       create a file of DVI operations and that DVI file has to be
       read into an R data structure.
     </li>
-      <li><strong>Rendering:</strong> The DVI data structure has to be drawn.
+      <li><strong>Rendering:</strong> The DVI data structure has to be turned
+      into R graphics drawing operations.
     </li>
     </ol>
     <p>
@@ -209,7 +220,8 @@ author(fragment, width=2)
     The <code>\usepackage{unicode-math}</code> is there to force the TeX engine
     to use TrueType math fonts and to produce font file paths in DVI output.
     Without this, you tend to get <code>fnt_def</code> operations in the DVI
-    output of the form <code>cmmi10</code>.  Those not only require mapping to
+    output of the form <code>cmmi10</code>.  Those not only require 
+    a potentially complicated further mapping to get to
     actual font files, but they resolve to Type 1 fonts.  That is a problem
     because the rendering of LaTeX fragments requires a graphics device that has
     support for rendering glyphs
@@ -222,7 +234,7 @@ author(fragment, width=2)
     'xdvir', the TeX engine that was used to author the document, and the LaTeX
     packages that were specified.  As noted previously, the engine defaults on
     package startup.  This information is used in the typesetting step
-    to check that compatible TeX engines and packages are used in different
+    to check that compatible TeX engines and packages are used in the other
     steps.
   </p>
     <p>
@@ -231,6 +243,7 @@ author(fragment, width=2)
     those values.  Notice that the addition of <code>packages="xcolor"</code>
     adds to both the comment on the first line and a new
     <code>\usepackage</code> line.  
+    The <code>engine</code> just turns up in the first line of comments.
   </p>
     <rcode><![CDATA[
 author(fragment, engine="xetex", packages="xcolor")    
@@ -252,8 +265,9 @@ author(fragment, packages="preview")
     document into.
     For example, the following code draws a simple LaTeX fragment
     and automatically matches the R default font family (rather than
-    using the default LaTeX Computer Modern font).
-    This is implemented by adding <code>\setmainfont</code> and
+    using the default LaTeX Computer Modern font)
+    and writes the full LaTeX document to the file <code>"test.tex"</code>.
+    The font matching is implemented by adding <code>\setmainfont</code> and
     <code>\fontsize</code> commands to the LaTeX document 
     (plus <code>\usepackage{fontspec}</code>).
   </p>
@@ -270,15 +284,13 @@ cat(readLines("test.tex"), sep="\n")
     reason for authoring a LaTeX document directly rather than relying
     on the <code>author()</code> function.
     However, care must be taken in that case to retain features like
-    <code>\usepackage{unicode-math}</code> so that the right 
-    DVI output is produced during the typesetting step.
+    <code>\usepackage{unicode-math}</code> so that 
+    DVI output that is consumable by 'xdvir' 
+    is produced during the typesetting step.
   </p>
     <p>
     In other words, here be dragons.  On the positive side, I have yet
     to irretrievably bite myself with this problem.
-  </p>
-    <p>
-    We will talk more about engines and packages later on.
   </p>
     <h2>
       <a name="typeset">3. Typesetting</a>
@@ -311,6 +323,10 @@ dvi
     Underneath, it is a list of <code>"rawFormat"</code>
     objects from the 'hexView' package;  labelled blocks of 
     raw bytes along with interpreted values (integers, strings, etc).
+    For example, the first list item is a DVI <code>pre</code>
+    operation, which consists of a one-byte integer operation code
+    (247), followed by a one-byte integer DVI version number (2),
+    and so on.
   </p>
     <rcode><![CDATA[
 dvi[[1]]
@@ -321,8 +337,9 @@ dvi[[1]]
     information about the 'xdvir' version, the TeX engine used,
     and any LaTeX packages used.  This information is used in the
     rendering step 
-    to check that compatible TeX engines and packages are used in different
-    steps.
+    to check that compatible TeX engines and packages are used in each
+    step.
+    Warnings are given if information is missing or inconsistent.
   </p>
     <p>
     There is an <code>engine</code> argument to allow the TeX engine
@@ -334,11 +351,20 @@ dvi[[1]]
     The typesetting step is probably where most user problems will occur, 
     most probably because the LaTeX fragment (or the LaTeX
     document) contains an error, so the call to a TeX engine fails.
+    For example, the following code adds a <code>$</code> to the 
+    previous LaTeX fragment to produce an illegal LaTeX fragment.
   </p>
     <rcode><![CDATA[
 bugFrag <- paste(fragment, "$")
+bugFrag
+  ]]></rcode>
+    <p>
+    When we build a complete LaTeX document and attempt to typeset it,
+    we get an error from the TeX engine.
+  </p>
+    <rcode><![CDATA[
 docBug <- author(bugFrag)
-typeset(docBug)
+typeset(docBug)    
   ]]></rcode>
     <p>
     The <code>texFile</code> argument is useful in cases like this because
@@ -353,6 +379,8 @@ typeset(docBug)
     'xdvir' automatically caches typsetting results. If the combination of
     LaTeX document, TeX engine, and LaTeX packages has been seen before
     then a cached <code>"DVI"</code> object will be used.
+    Ths means that the expensive typesetting step
+    should only occur once per unique TeX fragment (per session).
   </p>
     <p>
     For debugging problems, it can be useful to turn off caching 
@@ -373,15 +401,9 @@ dvi <- typeset(doc)
     It is also possible to perform the typesetting outside of R and
     just read a DVI file in using <code>readDVI()</code>.
     The important thing here is to make sure that you produce a DVI file.
-    (The funny-looking construction of the <code>command</code>
-    below is just to avoid 'knitr' errors.)
+    For example, <code>xelatex --no-pdf</code> or
+    <code>lualatex --output-format=dvi</code>.
   </p>
-    <rcode><![CDATA[
-arg <- "-no-pdf"
-command <- sprintf("xelatex -%s test.tex", arg)
-system(command)
-dvi <- readDVI("test.xdv")
-  ]]></rcode>
     <h2>
       <a name="render">4. Rendering</a>
     </h2>
@@ -390,7 +412,7 @@ dvi <- readDVI("test.xdv")
     object.  This is an alias for <code>grid.dvi()</code> - the rendering
     happens within the current 'grid' viewport.
   </p>
-    <rcode fig.width="1" fig.height=".5"><![CDATA[
+    <rcode fig.width="1" fig.height=".5" warning="FALSE"><![CDATA[
 render(dvi)
   ]]></rcode>
     <p>
@@ -403,11 +425,13 @@ render(dvi)
         objects, mostly either <code>"XDVIRglyphObjglyph"</code> objects, 
         which describe
         glyphs, the fonts they come from, and where to draw them, 
-        or <code>"XDVIRruleObj"</code>, which correspond to rectangles to draw
+        or <code>"XDVIRruleObj"</code> objects, 
+        which correspond to rectangles to draw
         (the only core TeX drawing operation).        
       </p>
         <p>
-        This step also gathers bounding box information which is vital
+        This step also resolves font definitions and
+        gathers bounding box information, which is vital
         for sizing and positioning the grobs that are produced in the
         second step.
       </p>
@@ -416,7 +440,9 @@ render(dvi)
         <p>
         We walk the list of objects and build a gTree of grobs,
         mostly either <code>"glyphgrob"</code>s, <code>"rect"</code> grobs,
-        or <code>"segments"</code> grobs.
+        or <code>"segments"</code> grobs.  Segments are used for
+        very thin rectangles because very thin filled rectangles 
+        tend to disappear on raster devices, including on screen.
       </p>
         <p>
         Consecutive glyph operations in the DVI file are collapsed into
@@ -425,7 +451,7 @@ render(dvi)
         a mathematical equation includes a horizontal line.
         In that case, in order to preserve the order of drawing,
         we end up with a <code>"glyphgrob"</code> for one or more
-        glyphs before a <code>"rect"</code> then another 
+        glyphs before a <code>"rect"</code> for the line then another 
         <code>"glyphgrob"</code> for one or more further glyphs.
       </p>
       </li>
@@ -441,6 +467,11 @@ render(dvi)
     based on how much a "dummy" glyph positioned at the bottom-left of
     the bounding box would have to move to satisfy the justification.
   </p>
+    <p>
+    A <code>margin</code> and <code>rot</code>ation can be specified
+    for rendering and these are implemented via viewports on the
+    overall gTree.
+  </p>
     <h3>Packages, engines, and font libraries</h3>
     <p>
     It is possible to specify the <code>packages</code> and
@@ -448,12 +479,13 @@ render(dvi)
     from the <code>"DVI"</code> object if possible.
     Checks are made for inconsistency between the user specification
     and the signature in the <code>"DVI"</code> object, if there is one.
+    Warnings are given if information is missing or inconsistent.
   </p>
     <p>
     It is also possible to specify a font library, which is used to
     get glyph metrics (for calculating glyph positions and the overall
     bounding box).  There is a default font library based on FreeType
-    (CITE) and no other option is provided (on CRAN).
+    (<a href="#freetype2"/>) and no other option is provided (on CRAN).
     Section <a href="#fontlibs">Font libraries</a> has more information.
   </p>
     <h3>Vectorisation</h3>
@@ -464,278 +496,463 @@ render(dvi)
     which can each be drawn at different (<code>x</code>, <code>y</code>)
     locations, at different <code>rot</code>ations,  and
     with different <code>hjust</code> and <code>vjust</code>
-    justitications.
+    justifications.
     The <code>gp</code> settings are also vectorised and applied
     to the corresponding <code>"DVI"</code> object.
     On the other hand, the <code>packages</code>, <code>engine</code>,
-    and <code>fontLib</code> are fixed for all <code>"DVI"</code> objects.
-  </p>
-    <p>
-    A <code>margin</code> and <code>rot</code>ation can be specified
-    for rendering and these are implemented via viewports on the
-    overall gTree.
+    and <code>fontLib</code> are fixed for all <code>"DVI"</code> objects
+    in a single <code>render()</code> call.
   </p>
     <h3>Resolution</h3>
     <p>
-    dpi
+    By default, DVI positions and font metrics are used at maximum
+    resolution (typically 72*2^16 scaled points per inch and
+    72*10*1000 units per inch, where 10 is the font point size, respectively) 
+    and R uses its default naive infinite resolution
+    calculations to position glyphs and to determine dimensions,
+    such as the bounding box.
+  </p>
+    <p>
+    However, it is also possible to specify a <code>dpi</code> 
+    resolution, in which case glyph locations and font dimensions
+    are rounded to the nearest "pixel".  This uses an algorithm
+    that produces identical results to <code>dvitype</code> 
+    (<a href="#knuth1982dvitype"/>)
+    at multiple resolutions on an identical DVI file
+    (see <code>tests/dpi.R</code>).
+  </p>
+    <p>
+    Using <code>dpi</code> may make sense if you know the dpi of 
+    the target graphics device, though I have yet to see convincing
+    evidence of improvement.  This may be because the <code>dpi</code>
+    rounding does
+    not guarantee alignment with pixels on the device because there 
+    are subsequent calculations on the rounded dpi locations
+    to satisfy justification.
   </p>
     <h3>Multiple pages</h3>
+    <p>
+    It is possible for a DVI file to contain multiple pages.
+    While this is unlikely to be the typical case for LaTeX 
+    fragments, it could still occur if a LaTeX document is generated
+    outside of R.
+  </p>
+    <p>
+    In such a case, <code>readDVI()</code> will read all pages into
+    a <code>"DVI"</code> object, but only the operations 
+    on the <code>page</code> specified to <code>render()</code>
+    will generate objects and operations on other pages will be ignored.
+  </p>
+    <p>
+    To be more accurate, some operations, such as positioning and setting
+    of fonts will be listened to on all pages in case settings
+    carry over across pages, but those operations will not
+    generate any objects themselves.
+  </p>
+    <h3>Delayed rendering</h3>
+    <p>
+    The creation of <code>"glyphgrob"</code>s is delayed, in the sense
+    of happening within a <code>makeContent()</code> method,
+    because the calculation of anchors and offsets for justification
+    has to occur at drawing time, once the rendering viewport is known.
+    This means that grob queries, such as <code>grobWidth()</code>
+    incur a penalty as well because they have to generate final grobs
+    (though not necessarily <code>"glyphgrob"</code>s).
+  </p>
+    <p>
+    There can be a further layer of delay when calling 
+    <code>grid.latex()</code> because the author step has to occur
+    at drawing time if the <code>width</code> requires converting to
+    inches and/or the current font has to be queried (so we need to
+    know the final rendering viewport).
+    This delay does not occur if <code>width</code> is not specified
+    and/or it is in absolute units <em>and</em> <code>gp</code>
+    is set to <code>NULL</code> (so the "current" font settings
+    are ignored).  This additional delay results in additional
+    penalties for grob queries.
+  </p>
     <h2>
       <a name="packages">5. Packages</a>
     </h2>
-    <h2>
-      <a name="engines">6. Engines</a>
-    </h2>
-    <h2>
-      <a name="fontlibs">7. Font libraries</a>
-    </h2>
-    <h2>TikZ</h2>
     <p>
-    There are TikZ obejcts
-  </p>
-    <h2>TODO</h2>
-    <p>
-    Use the ChartAccent paper and its references to justify the
-    need for tools that can add annotations.
+    'xdvir' provides predefined support for several LaTeX packages:
+    fontspec, xcolor, preview, zref, and tikz (see the
+    <a href="#tikz">TikZ</a> Section).
   </p>
     <p>
-      <strong>PROVIDE a map of the structure of the report</strong>
-    </p>
+    There are obviously many more LaTeX packages that 
+    users might want to make use of in their LaTeX fragments.
+    One approach is to write an entire LaTeX document by hand, which
+    means you can include whatever packages you need.
+    However, this is not the most convenient and will not work,
+    for example, with the 'ggplot2' interfaces <code>geom_latex()</code>
+    and <code>element_latex()</code>.
+  </p>
     <p>
-    Examples:
+    So there is a mechanism for defining support for additional LaTeX packages
+    in the form of the <code>LaTeXpackage()</code> function
+    (plus the <code>registerPackage()</code> function).
+  </p>
+    <p>
+    The <code>name</code> argument provides convenience.
+    If the package is registered, then it can be referred to by this
+    name (which is what previous examples have done with predefined packages).
+  </p>
+    <p>
+    The <code>preamble</code> argument is LaTeX code that will be placed in
+    the LaTeX document preamble in the authoring step.
+    This is often just a <code>\usepackage</code> command, but 
+    the preview package example earlier showed that other LaTeX
+    code can be included.
+  </p>
+    <p>
+    The <code>prefix</code> and <code>suffix</code> arguments are LaTeX code 
+    that is wrapped around the LaTeX fragment in the authoring step.
+    A typical use would be to wrap the LaTeX fragment in a LaTeX
+    environment (like the preview package does).
+  </p>
+    <p>
+    The <code>special</code> argument is a function.
+    This is useful for packages that generate DVI specials, like xcolor.
+    The following code authors a typesets a simple LaTeX fragment
+    that draws text in red.
+    The resulting DVI output contains DVI specials, which are marked
+    as <code>xxx1</code> operations.
+    These have been  produced by the xcolor package
+    and contain information about changes in colour.
+    For example <code>color push gray 0</code> sets the text colour
+    to black and <code>color push rgb 1 0 0</code> sets it to red.
+  </p>
+    <rcode><![CDATA[
+tex <- author("\\color{red} test", packages="xcolor")
+dvi <- typeset(tex)
+dvi
+  ]]></rcode>
+    <p>
+    The rendering step calls the <code>special</code> function
+    (if not <code>NULL</code>) for every registered package,
+    providing the content of the special (e.g., <code>color push gray 0</code>)
+    as a character value, and a <code>state</code> object.
+    The latter is just an environment that can be used to maintain 
+    state variables during the walk of DVI operations.
+    For example, the <code>special</code> function for the xcolor
+    package (in 'xdvir') maintains a stack of colours
+    based on specials that start with <code>color</code> (and ignores
+    all other specials).
+  </p>
+    <p>
+    The <code>init</code> and <code>final</code> arguments are also functions
+    that are called at the start and end of walking the DVI operations.
+    These are passed a <code>state</code> object and allow initialisation 
+    of state variables and anything else the package wants to do.
+  </p>
+    <p>
+    In summary, the <code>LaTeXpackage()</code> function allows the user
+    to specify LaTeX code that will be added to a LaTeX fragment during the
+    authoring step and a function to handle specials during the rendering
+    step that the LaTeX package
+    generated in DVI output during the typesetting step.
+  </p>
+    <p>
+    The <code>registerPackage()</code> function is used to 
+    register the package with 'xdvir' so that it can be referred to by name.
+  </p>
+    <h2>
+      <a name="tikz">6. TikZ</a>
+    </h2>
+    <p>
+    The support for the tikz package in 'xdvir' is several
+    orders of magnitude more complex than the support for other
+    packages, so deserves its own mention.
+  </p>
+    <p>
+    The LaTeX package TikZ (<a href="#tantau2013tikz"/>) 
+    provides a sophisticated graphics system
+    within the LaTeX world.  It generates graphical output by
+    producing specials in the DVI output.
+    For example, consider the TikZ fragment below
+    (it is constructed in a slightly odd way to avoid 'knitr' errors).
+    This describes a simple TikZ diagram that draws an arrow from "a" to "b".
+  </p>
+    <rcode><![CDATA[
+tikzFrag <- paste0(r"(\draw[->] (0, 0) node[left] {a} -)",
+                   r"(- (1, 0) node[right] {b};)")
+tikzFrag
+  ]]></rcode>
+    <p>
+    The following code augments that to a full LaTeX document,
+    including additional LaTeX code to load the TikZ package
+    and wrap the fragment within a <code>tikzpicture</code>
+    environment.
+    The <code>\def\pgfsysdriver</code> command is very important
+    because this provides a backend for the TikZ package 
+    that outputs TikZ specials designed for consumption by 'xdvir'.
+    Without that command, TikZ would output specials consisting of
+    PDF commands.
+  </p>
+    <rcode><![CDATA[
+tikzDoc <- author(tikzFrag, packages="tikzPicture")
+tikzDoc
+  ]]></rcode>
+    <p>
+    Typesetting this document generates a large number of special
+    operations in the DVI output, all starting with <code>xdvir-tikz::</code>
+    so that the <code>special</code> function for the tikz package in 'xdvir' 
+    will identify them and handle them.
+  </p>
+    <rcode><![CDATA[
+tikzDVI <- typeset(tikzDoc)
+tikzDVI
+  ]]></rcode>
+    <p>
+    The <code>special</code> function for the tikz package in 'xdvir'
+    calls a large number of other functions to maintain a lot of 
+    state to keep track of where drawing needs to occur.
+    It also generates a number of special <code>"XDVIRtikz*"</code>
+    objects (that are not glyph or rule objects that normal 
+    DVI operations produce) and 
+    there are functions to convert those special tikz objects into
+    'grid' grobs (in the second stage of the rendering step).
+  </p>
+    <p>
+    At the high level, all of this internal activity is hidden and we can just
+    call <code>grid.latex()</code> with the TikZ fragment and make sure to
+    load the tikz package support, as shown below.
+  </p>
+    <rcode fig.width="2" fig.height=".5"><![CDATA[
+grid.latex(tikzFrag, packages="tikzPicture")
+  ]]></rcode>
+    <h2>
+      <a name="engines">7. Engines</a>
+    </h2>
+    <p>
+    The 'xdvir' package has predefined support for 
+    the XeTeX engine and the LuaTeX engine, though it insists on
+    a recent version of the latter so that DVI output contains
+    font file paths in font definitions and glyph indices in 
+    <code>set_char</code> operations.
+  </p>
+    <p>
+    This means that 'xdvir' cannot work with DVI output that is 
+    generated by, for example, pdfTeX or upTeX, which generate
+    DVI output with font definitions that require resolving more complex 
+    font file mappings and <code>set_char</code> operations that
+    use a variety of different encodings.
+  </p>
+    <p>
+    The door is left ajar for future development of support for other
+    engines by providing the <code>TeXengine()</code> function
+    (and the <code>registerEngine</code> function).
+  </p>
+    <p>
+    The <code>name</code> argument provides an easy way to refer to the
+    engine if it is registered with 'xdvir'.
+  </p>
+    <p>
+    The <code>version</code> argument is a function (with no arguments)
+    that should return the version of the engine.
+    This is used to construct comments in the authoring step and
+    signatures in the typesetting step to check for consistency
+    between steps.
+  </p>
+    <p>
+    The <code>command</code> is a character value that gives the
+    engine command (e.g., <code>"xelatex"</code>) and <code>options</code>
+    are any additional options required to produce DVI output
+    (e.g., <code>"--no-pdf"</code>).
+    <code>dviSuffix</code> gives the suffix used for DVI output files
+    (e.g., <code>.xdv</code>).
+  </p>
+    <p><code>isEngine</code> is a function that is called with a
+    DVI object and should return whether the engine produced that 
+    DVI object (used to help check for consistency).
+  </p>
+    <p>
+    The <code>preamble</code> is LaTeX code that should be added
+    in the authoring step.
+  </p>
+    <p>
+    The <code>fontFile</code> and <code>glyphIndex</code> arguments
+    are functions called during the rendering step to
+    convert DVI operations into objects.
+    <code>fontFile</code> is called with the content of a DVI font definition 
+    (as a character value) and should return a font file path.
+    <code>glyphIndex</code> is called with the content of a 
+    <code>set_char</code> operation (as a set of raw bytes) and should
+    return an integer glyph index.
+  </p>
+    <p>
+    The implementation of <code>fontFile</code> and <code>glyphIndex</code>
+    for XeTeX and (acceptable) LuaTeX is relatively straightforward,
+    but they offer a possible path for other engine support, though
+    that may require much more complex implementations.
+  </p>
+    <h2>
+      <a name="fontlibs">8. Font libraries</a>
+    </h2>
+    <p>
+    The 'xdvir' package relies on FreeType to access glyph
+    metrics (for glyph placement and for bounding box calculations).
+    The FreeType support is defined via an internal 
+    <code>FontLibrary()</code> function that requires three functions
+    to return glyph metric information.
+    That function is not currently exported, but 'xdvir' internally 
+    defines a different font library based on TTX 
+    (<a href="#fonttools2025ttx"/>), which
+    can be useful for debugging.
+  </p>
+    <h2>
+      <a name="discussion">9. Discussion</a>
+    </h2>
+    <p>
+    The 'xdvir' package provides a convenient high-level interface
+    for using LaTeX fragments as plot labels and annotations in R.
+    This document describes some of the details and internal design
+    of the package, which may be helpful for diagnosing problems
+    when things go wrong and possibly for extending the package.
+  </p>
+    <h3>Limitations</h3>
+    <p>
+    Rendering is slow.  The typesetting step requires at least 
+    one run of a TeX engine.  Caching helps the second time around,
+    but a plot that contains multiple unique TeX fragments can be glacial.
+  </p>
+    <p>
+    As mentioned previously, 'xdvir' only supports
+    XeTeX and 
+    LuaTeX only if luaotfload-tool verion is &gt; 3.15.
+  </p>
+    <p>
+    'xdvir' depends on R &gt;= 4.3 because it makes use of the
+    glyph-rendering feature that was added in that version.
+    This extends to requiring a graphics device that provides
+    glyph-rendering, which currently includes
+    <code>pdf()</code>,
+    <code>quartz()</code>,
+    the Cairo-based devices such as
+    <code>cairo_pdf()</code> and
+    <code>png(type="cairo")</code>,
+    plus devices from the 'ragg' package (<a href="#pkg:ragg"/>).
+  </p>
+    <p>
+    The PDF produced by
+    <code>pdf()</code> 
+    does NOT embed the fonts, so viewers may show 
+    garbage glyphs.
+    The <code>embedGlyphs()</code> function can be used
+    to embed glyphs, but a little effort is required to extract
+    glyph information from the 'grid' gTree that rendering produces.
+  </p>
+    <h3>Prior work</h3>
+    <p>
+    The 'xdvir' package is an evolution of the 'dvir' package 
+    (<a href="#murrell-dvir"/>, <a href="#murrell-dvir-luatex"/>),
+    which only exists on github.  'xdvir' has borrowed a lot 
+    of code from 'dvir' (especially for TikZ support; 
+    <a href="#murell-dvir-tikz"/>), but streamlined
+    some of the user interface, added integration with 'ggplot2',
+    and massively simplified the handling of font definitions and
+    glyph specifications in DVI output (by insisting that they
+    contain font file paths and glyph indices, respectively).
+    The 'xdvir' package also benefits from the glyph rendering support
+    in R (from version 4.3), whereas 'dvir' had to struggle with
+    the simplistic R text drawing of character values.
+  </p>
+    <h3>Related work</h3>
+    <p>
+    A number of R packages and other software perform a similar job
+    to 'xdvir', but differ in various ways.  The following list
+    focuses on the negatives of these other approaches, but they almost
+    all have the advantage of NOT having massive dependencies (like 'xdvir'
+    does with its need for a TeX installation) and NOT being slow
+    (like 'xdvir' is with its typesetting step).
   </p>
     <ul>
       <li>
-      dpi arg.
-      Gaussian equation a decent example
-      (though note that unicode-math means heavier rules!)
-    </li>
-      <rcode><![CDATA[
-tex <- r"(\huge $\Phi(z) = \frac{1}{\sqrt{2\pi}} \cdot e^{-\frac{z^2}{2}}$)"
-    ]]></rcode>
+        <p>
+        'latex2exp' converts LaTeX (mathematical equation) fragments to 
+        R expression, to be drawn using plotmath). 
+        This helps LaTeX users to write plotmath expressions, but the
+        end result is plotmath, which produces an inferior result to real
+        LaTeX.  It also only supports LaTeX mathematical equations.
+      </p>
+      </li>
       <li>
-      Tables, multi-column, etc
-    </li>
+        <p>
+        'tikzDevice' converts R graphics into LaTeX graphics.
+        This is basically the inverse of 'xdvir'.  If you want to end
+        up in a LaTeX document, this might be the way to go.
+        If you want to end up somewhere else, then 'xdvir' might be for you.
+      </p>
+      </li>
       <li>
-      Combination of text and math
-    </li>
+        <p>
+        'marquee' typesets and renders markdown.  The main difference
+        is markdown rather than LaTeX.  Markdown can be easier to type,
+        but LaTeX gives more control.
+      </p>
+      </li>
       <li>
-      Various alignment options (esp, baseline, esp. with math)
-    </li>
+        <p>
+        There are some R packages that perform specific tasks,
+        like 'geomtextpath' (text along a path) and  'ggpage' 
+        (paragraphs of text), but they tend to be much more limited
+        in their scope.
+      </p>
+      </li>
       <li>
-      Packages: Colours, fonts
-    </li>
+        <p>
+        In the Python world, there is a flag in matplotlib that switches
+        all plot labelling to use LaTeX. 
+        This uses a similar approach to 'xdvir' by generating and reading
+        DVI output. 
+        The main difference is where you want to produce
+        your plots: Python/matplotlib versus R/ggplot2.
+      </p>
+      </li>
       <li>
-      Do example of creating graphicx package external to {xdvir}.
-    </li>
+        <p>
+        The dvi-decode javascript module renders DVI files in a
+        web browser.  It is quite general in theory, but
+        faces challenges with resolving fonts.
+        This is also not integrated with any plot-drawing library.
+      </p>
+      </li>
       <li>
-      TikZ (and mixture of TikZ with text etc).
-      <code>tikzPackage()</code> vs <code>tikzPicture()</code>.
-    </li>
-      <li>
-      Vertical text
-    </li>
-      <li>
-      All of the above on different engines (mostly LuaTeX and XeTeX).
-    </li>
-    </ul>
-    <p>
-    Delayed rendering from grid.latex() - when, why, how
-  </p>
-    <p>
-    Name check the 'dvir' package.
-  </p>
-    <p>
-    New focus on glyphGrob()s instead of textGrob()s.
-  </p>
-    <p>
-    baseline support (via 'preview' at least).
-    Puts <code>dvir-preview</code> output with height, depth, and width in DVI file.
-    Sets "preview-baseline" (vertical) anchor.
-    Used for aligning grid.typeset() for now.
-    Could be used for more sophisticated alignment of grid.*latex()
-    as well in future (?).
-  </p>
-    <p>
-    Support for colours (via 'xcolor' at least).
-    <code>grid.lualatexTypeset()</code> and <code>grid.xelatexTypeset)</code> default
-    to using both 'preview' and 'xcolor'.
-    Need to add support for colour with <code>grid.latex()</code> etc.
-  </p>
-    <p>
-    fontspec support (as package)
-  </p>
-    <p>
-    upTeX support for vertical text direction (e.g., Japanese).
-    The 'patchDVI' vignette "Using Sweave and patchDVI with Japanese
-    text" has some advice for which LaTeX packages and settings to
-    use for Japanese text.
-  </p>
-    <p>
-    NOTE that these features are all pretty much orthogonal.
-  </p>
-    <p>
-    Font library (and default and setting and how to define one, including
-    the argument list for all methods).
-  </p>
-    <p>
-    Package message on start up that reports on availability and
-    versions of tools.
-  </p>
-    <p>
-    Summary of install options:
-  </p>
-    <p>
-    Could have a section on efficiency, especially for things like
-    R markdown documents that get run over and over again.
-    Use author(), typeset(),
-    and readDVI() so do not keep having to rerun TeX engine.
-    Generate latexGrob() so do not have to keep running that step
-    (may also have to use forceGrob() IF make a makeContent() method
-    so that calculations are redone on, e.g., device resize).
-  </p>
-    <p>
-    BIG mention of Type 1 fonts ([mostly] not supported) vs True Type
-    and Open Type.
-  </p>
-    <p>
-    Because we use grid.glyph(), only works with R &gt;= 4.3.0 and 
-    on Cairo, or pdf(), or quartz() (so far).
-  </p>
-    <p>
-    Note on embedding fonts in pdf() - convenience function to
-    extract glyphInfos from dviGrob to feed to embedGlyphs() ?
-    NOTE that embedGlyphs() can now accept list of glyphInfo
-    (which is necessary because dviGrob will often contain more
-    than one glyphGrob).
-  </p>
-    <p>
-    Because we use grid.glyph(), lualatexGrob()s (et al) are
-    specific to computer that they are created on (for font file
-    paths). OTOH, that is also true of the DVI files that contain
-    font file paths!!  (XeTeX and modern LuaTeX).
-  </p>
-    <p>
-    Packages:  convenient (yet flexible) specification of packages
-    via aliases;  new packages can be defined by users and added
-    to the package register;  package definition consists of 
-    preamble, prefix, suffix, and special (simple example is xcolor,
-    incredibly complex example is tikz, somewhere in between
-    is preview).
-  </p>
-    <p>
-    Package complications:  order matters, both for loading packages,
-    but even more for nesting of prefixes/suffixes.
-  </p>
-    <p>
-    Breakdown of 'xdvir' components.
-    functions like <code>lualatexGrob()</code> hide multiple
-    steps:  <code>author()</code> to generate TeX document from
-    TeX fragment;  <code>typeset()</code> to generate DVI file from
-    TeX document;  <code>readDVI()</code> to read DVI file into R;
-    <code>dviGrob()</code> to generate grobs from DVI.
-    All of those, except <code>readDVI()</code> take an
-    <code>engine</code> argument.
-    Both <code>author()</code> and <code>dviGrob()</code> also
-    take a <code>packages</code> argument.
-    Ideally <code>engine</code> and <code>packages</code>
-    would be consistent across calls, but variations
-    are possible and should not break even if they drop some features (?).
-    The structure also allows entry points other than a TeX fragment.
-    For example, you can write your own TeX document and you can even
-    start from a DVI file generated elsewhere.  However, in those cases
-    you REALLY need to know what you are doing and you need to carefully
-    select at least an appropriate engine, if not also packages.
-    Can even make a new engine BUT NOTE that engine "options" must
-    be a character vector (one value per option).
-  </p>
-    <p>
-      <img src="Diagram/system.png" alt="Diagram of 'xdvir' components" style="max-width: 100%"/>
-    </p>
-    <p>
-    Detailed discussion of differences from 'dvir':
-    reimplementation of lualatex support;
-    no fontconfig;
-    no subset fonts;
-    no viewport;
-    glyphs not text;
-    font files not font family etc;
-    not device-specific (although only devices with dev-&gt;glyph() support);
-    all metrics via fonts rather than via dev-&gt;stringMetric();
-    no need to map TeX font to stupid R font spec.
-  </p>
-    <p>
-    Related work:  'latex2exp' (convert LaTeX to R expression, still drawn
-    using plotmath);  'tikzDevice' (put R in TeX rather than the other way
-    around - no longer maintained?);  'textshaping' (limited typesetting);
-    'geomtextpath' (text along a path!);  'ggpage' (draws paragraphs of text
-    BUT with very simplistic typesetting algorithm based on 
-    stringr::str_wrap()?); 
-
-    <a href="https://matplotlib.org/stable/tutorials/text/usetex.html">Text rendering with LaTeX</a> in matplotlib (in Python).
-That mentions some limitations.
-This one mentions cache to avoid processing same tex twice
-https://matplotlib.org/stable/gallery/text_labels_and_annotations/tex_demo.html 
-
-    'marquee' (!!) under development.
-
-    dvi-decode javascript module for rendering DVI in browser
-    https://latex.org/forum/viewtopic.php?t=35259
-    (this has some very familiar constraints ...
-    https://github.com/matjp/dvi-decode)
-
+        <p>
+        It is apparently possible to use LaTeX in plot titles (at least)
+        in the COMSOL software, though this is a commercial product 
+        so I have not tried it myself.
+        <!-- 
     Commercial product
     Using LaTeX to Add Mathematical Expressions to Plot Titles | COMSOL Blog
     https://www.comsol.com/blogs/using-latex-to-add-mathematical-expressions-to-plot-titles#:~:text=To%20add%20LaTeX%20commands%20in,for%20the%20display%20math%20mode
-
-  </p>
-    <p>
-    Future work:
-    
-    Integrate 'xdvir' with 'tikzDevice' 
-    =&gt; latex in grid in latex ...
-
-    add interface to allow latex in ggplot2 titles etc
-    as per ggtext and marquee.
-  </p>
-    <p>
-    Limitations:
-
-    need device with glyph support;
-    XeTeX and LuaTeX only;
-    LuaTeX only if luaotfload-tool verion is &gt; 3.15;
-    May need recent LuaTeX (e.g., 1.17.0 as available on Ubuntu 24.04)
-    to get reliable full font file paths (and glyph ids) in DVI output;
-    must specify fonts by file path when using fontspec
-
-    Specifying 'width' is approximate - use minipage to get more 
-    precise and reliable control.
-  </p>
+        -->
+      </p>
+      </li>
+    </ul>
     <h2>
-      <a name="requirements">8. Technical requirements</a>
+      <a name="requirements">10. Technical requirements</a>
     </h2>
     <p>
     The examples and discussion in this report relate to 
-    R version 4.3.0 and 'dvir' version 0.4-0.
-    Any example using <code>embedGlyphs()</code> (to embed fonts in PDF
-    output) with <em>list</em> of glyph info
-    will need R-devel!
+    R version 4.4.2 and 'xdvir' version 0.1-2.
   </p>
     <p>
     This report was generated within a Docker container
     (see <a href="#Resources">Resources</a> section below).
   </p>
     <h2>
-      <a name="Resources">9. Resources</a>
+      <a name="Resources">11. Resources</a>
     </h2>
     <ul>
       <li>
-      The <a href="xetex.cml">raw source file</a> for this
-      report, a <a href="xetex.xml">valid XML</a>
-      transformation of the source file, a <a href="xetex.Rhtml">'knitr' document</a> generated from
+      The <a href="xdvir.cml">raw source file</a> for this
+      report, a <a href="xdvir.xml">valid XML</a>
+      transformation of the source file, a <a href="xdvir.Rhtml">'knitr' document</a> generated from
       the XML file, 
       two <a href="toc.R">R</a> <a href="bib.R">files</a> and
-      the <a href="xetex.bib">bibtex file</a>
+      the <a href="xdvir.bib">bibtex file</a>
       that are used to generate the table of contents and reference sections,
       two <a href="common.xsl">XSL</a> <a href="knitr.xsl">files</a> and an 
       <a href="knit.R">R file</a> that are used to transform the XML to
@@ -743,54 +960,62 @@ https://matplotlib.org/stable/gallery/text_labels_and_annotations/tex_demo.html
       contains code for the other transformations and coordinates
       everything.  
       These materials are also available
-      on <a href="https://github.com/pmur002/xetex-report/releases/tag/v1">github</a>.
+      on <a href="https://github.com/pmur002/xdvir-report/releases/tag/v1">github</a>.
     </li>
       <li>
       This report was generated within a 
       <a href="https://www.docker.com/">Docker</a> container.
       The Docker command to build the report is included in the Makefile above.
       The Docker image for the container is available from
-      <a href="https://hub.docker.com/r/pmur002/xetex-report/">Docker Hub</a>;
+      <a href="https://hub.docker.com/r/pmur002/xdvir-report/">Docker Hub</a>;
       alternatively, the image can be rebuilt from its 
       <a href="Dockerfile">Dockerfile</a>.
     </li>
     </ul>
     <h2>How to cite this report</h2>
     <p>
-    Murrell, P. (2022). "" 
-    Technical Report 2022-??, Department of Statistics, The University of Auckland. 
+    Murrell, P. (2025). "LaTeX Typesetting in R: The 'xdvir' Package" 
+    Technical Report 2025-01, Department of Statistics, The University of Auckland. 
     Version 1.
     [ <a href="how-to-cite.bib">bib</a> |
       <a href="http://dx.doi.org/">DOI</a> | 
       <a href="https://stattech.blogs.auckland.ac.nz/">http</a> ]
   </p>
     <h2>
-      <a name="references">10. References</a>
+      <a name="references">12. References</a>
     </h2>
     <ul style="list-style-type: none">
-      <li>
-        <a name="R"/>
-      </li>
       <li>
         <a name="xdvir-pkg"/>
       </li>
       <li>
         <a name="murrell-pedersen-urbanek-glyphs-2023"/>
       </li>
+      <li>
+        <a name="freetype2"/>
+      </li>
+      <li>
+        <a name="knuth1982dvitype"/>
+      </li>
+      <li>
+        <a name="tantau2013tikz"/>
+      </li>
+      <li>
+        <a name="fonttools2025ttx"/>
+      </li>
+      <li>
+        <a name="pkg:ragg"/>
+      </li>
+      <li>
+        <a name="murrell-dvir"/>
+      </li>
+      <li>
+        <a name="murrell-dvir-luatex"/>
+      </li>
+      <li>
+        <a name="murrell-dvir-tikz"/>
+      </li>
     </ul>
-    <h2>Footnotes</h2>
-    <div>
-      <p class="footnote"> 
-g     <a name="beausoleil"/>
-      This plot example was inspired by a 
-      <a href="https://stackoverflow.com/questions/75889406/typing-long-text-in-legend-with-automatic-line-return-and-mathematical-notation">post on 
-      Stack Overflow</a> by Marc-Olivier Beausoleil.
-      The final image is a simplified version of one frame from an 
-      animation that was designed to explain the derivation of 
-      an "adaptive landscape" from a "fitness function".
-      Many thanks to Marc-Olivier for sharing his code.
-    </p>
-    </div>
     <hr/>
     <p><a rel="license" href="http://creativecommons.org/licenses/by/4.0/"><img class="CC" alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by/4.0/88x31.png"/></a><br/><span xmlns:dct="http://purl.org/dc/terms/" property="dct:title">This document</span>
     by <span xmlns:cc="http://creativecommons.org/ns#" property="cc:attributionName">Paul
