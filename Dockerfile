@@ -61,9 +61,9 @@ RUN Rscript -e 'library(devtools); install_version("gggrid", "0.2-0", repos="htt
 RUN Rscript -e 'library(devtools); install_version("cli", "3.6.4", repos="https://cran.rstudio.com/")'
 
 # Using COPY will update (invalidate cache) if the tar ball has been modified!
-COPY xdvir_0.1-2.tar.gz /tmp/
-RUN R CMD INSTALL /tmp/xdvir_0.1-2.tar.gz
-# RUN Rscript -e 'devtools::install_github("pmur002/xdvir@v0.1-2")'
+# COPY xdvir_0.1-2.tar.gz /tmp/
+# RUN R CMD INSTALL /tmp/xdvir_0.1-2.tar.gz
+RUN Rscript -e 'devtools::install_github("pmur002/xdvir@v0.1-2")'
 
 RUN apt-get install -y locales && locale-gen en_US.UTF-8
 ENV LANG en_US.UTF-8
